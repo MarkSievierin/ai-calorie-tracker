@@ -10,6 +10,7 @@ Reader/Writer), auth and deploy.
   Alpine.js + Chart.js + Tailwind 4 via Vite, Postgres 17 in prod, SQLite locally and in tests.
 - Node 22 via nvm for the frontend build (`source ~/.nvm/nvm.sh && nvm use 22`).
 - Before handing off: `php artisan test`, `vendor/bin/phpstan analyse`, `vendor/bin/pint --test`, `npm run build`.
-- Deploy: `deploy/deploy.sh` (needs ssh alias `kkal`). Production data is real: do not seed or wipe it.
+- Deploy: `deploy/deploy.sh` (needs ssh alias `kkal`). Host details: `deploy/SERVER.local.md` (local only, never commit
+  server address or domain). Production data is real: do not seed or wipe it.
 - Behaviour of Claude in chat = `resources/mcp/instructions.md` + tool descriptions in `app/Mcp/Tools`.
 - Update README when logic or architecture changes, with the reason.

@@ -26,7 +26,7 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /storage/shots
-/deploy/*.local
+/deploy/*.local*
 
 # Personal data, kept locally only
 /docs/spec.docx
