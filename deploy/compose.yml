@@ -1,0 +1,46 @@
+# Lives on the server as /opt/kkal/compose.yml; the app source is synced to /opt/kkal/app.
+name: kkal
+
+services:
+  app:
+    build:
+      context: ./app
+      target: app
+    image: kkal-app:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: kkal
+      DB_USERNAME: kkal
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      # Only nginx on the host talks to the app.
+      - "127.0.0.1:8091:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://127.0.0.1/up') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kkal
+      POSTGRES_DB: kkal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    # No published port: reachable only from the app container.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kkal -d kkal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

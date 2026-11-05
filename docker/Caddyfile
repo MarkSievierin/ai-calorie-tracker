@@ -1,0 +1,12 @@
+{
+	frankenphp
+	auto_https off
+	admin off
+}
+
+# No `log` directive on purpose: access logs would contain ?key=<token> from the MCP connector URL.
+:80 {
+	root * /app/public
+	encode zstd gzip
+	php_server
+}
