@@ -106,6 +106,7 @@ Alpine.data('kkal', () => ({
     weightInput: '',
     products: [],
     productPick: { id: '', grams: '' },
+    productForm: null,
 
     weightPeriod: 28,
     weights: { points: [], trend: [] },
@@ -473,6 +474,33 @@ Alpine.data('kkal', () => ({
             }
             this.settings = (await api('settings', { method: 'PUT', body })).settings;
             this.notify('Настройки сохранены');
+        });
+    },
+    newProduct() {
+        this.productForm = { id: null, name: '', kcal_100g: '', protein_100g: '', fat_100g: '', carbs_100g: '', default_portion_g: '' };
+    },
+    editProduct(p) {
+        this.productForm = { ...p, originalName: p.name, default_portion_g: p.default_portion_g ?? '' };
+    },
+    async saveProduct() {
+        const f = this.productForm;
+        const num = (v) => Number(String(v || 0).replace(',', '.'));
+        await this.run(async () => {
+            await api('products', {
+                method: 'POST',
+                body: {
+                    name: f.name.trim(), kcal_100g: num(f.kcal_100g), protein_100g: num(f.protein_100g),
+                    fat_100g: num(f.fat_100g), carbs_100g: num(f.carbs_100g),
+                    default_portion_g: f.default_portion_g === '' ? null : num(f.default_portion_g),
+                },
+            });
+            // Products are keyed by name: a rename saves a new one, so drop the old record.
+            if (f.id && f.originalName && f.originalName !== f.name.trim()) {
+                await api('products/' + f.id, { method: 'DELETE' });
+            }
+            this.productForm = null;
+            this.products = (await api('products')).products;
+            this.notify('Продукт сохранён');
         });
     },
     async deleteProduct(p) {
