@@ -33,7 +33,8 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // No file serving or uploads: photos never reach this server (agents send text only).
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
