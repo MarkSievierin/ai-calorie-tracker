@@ -10,7 +10,9 @@ or any other agent that speaks MCP. The same operations are also available as RE
 One user, no registration, one static token.
 
 - App: https://kkal.example.com
-- MCP endpoint: `https://kkal.example.com/mcp?key=<KKAL_TOKEN>` (claude.ai: Settings → Connectors → Add custom connector)
+- MCP endpoint: `https://kkal.example.com/mcp` with header `Authorization: Bearer <KKAL_TOKEN>`
+  (claude.ai: Settings → Connectors → Add custom connector → No sign-in → Request headers).
+  Clients without headers: `/mcp?key=<KKAL_TOKEN>`.
 - Spec: `docs/spec.docx` (local only, not in git: contains personal data)
 
 ## How the numbers work
@@ -62,9 +64,11 @@ Rules:
 
 ## Auth
 
-One token (`KKAL_TOKEN`) for everything, checked in `RequireToken`: `?key=` (claude.ai connector form takes only a URL),
-`Authorization: Bearer`, or the `kkal_token` cookie (HttpOnly, SameSite=Strict) set by `POST /api/login`.
+One token (`KKAL_TOKEN`) for everything, checked in `RequireToken`: `Authorization: Bearer` (preferred for MCP
+clients that support request headers, e.g. the claude.ai custom connector), `X-Api-Key`, the `kkal_token` cookie
+(HttpOnly, SameSite=Strict) set by `POST /api/login`, or `?key=` as a fallback for clients that take only a URL.
 Constant-time compare, 401 without details, 10 failed attempts per IP per minute -> 429.
+Rotate: put a new `openssl rand -hex 32` into `/opt/kkal/.env`, then `docker compose up -d --force-recreate app`.
 The token must not reach logs: nginx logs `$uri` without the query string, nginx error log is `crit` only
 (upstream errors would print the full request line), Caddy inside the container has no access log.
 
