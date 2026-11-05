@@ -9,9 +9,10 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Single static token for everything. Accepted from:
- * - ?key=<token>                 (claude.ai connector form takes only a URL, so the secret rides in it)
- * - Authorization: Bearer <token> (curl, scripts)
- * - kkal_token cookie            (web app after login)
+ * - Authorization: Bearer <token> (MCP clients with request headers, e.g. claude.ai custom connector; curl)
+ * - X-Api-Key: <token>            (clients that only let you set a plain header)
+ * - kkal_token cookie             (web app after login)
+ * - ?key=<token>                  (fallback for clients that take only a URL; the secret then lives in the URL)
  */
 class RequireToken
 {
@@ -37,7 +38,10 @@ class RequireToken
 
     public static function presented(Request $request): ?string
     {
-        $value = $request->query('key') ?? $request->bearerToken() ?? $request->cookie(self::COOKIE);
+        $value = $request->bearerToken()
+            ?? $request->header('X-Api-Key')
+            ?? $request->cookie(self::COOKIE)
+            ?? $request->query('key');
 
         return is_string($value) && $value !== '' ? $value : null;
     }

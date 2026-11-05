@@ -25,6 +25,8 @@ class AuthTest extends TestCase
     {
         $this->getJson('/api/day?key=test-token')->assertOk();
         $this->getJson('/api/day', ['Authorization' => 'Bearer test-token'])->assertOk();
+        $this->getJson('/api/day', ['X-Api-Key' => 'test-token'])->assertOk();
+        $this->getJson('/api/day', ['X-Api-Key' => 'wrong'])->assertStatus(401);
         $this->withCredentials()->withUnencryptedCookie('kkal_token', 'test-token')->getJson('/api/day')->assertOk();
     }
 
@@ -57,5 +59,13 @@ class AuthTest extends TestCase
     public function test_mcp_requires_token(): void
     {
         $this->postJson('/mcp', ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'])->assertStatus(401);
+    }
+
+    public function test_mcp_accepts_token_in_headers(): void
+    {
+        $ping = ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'ping'];
+        $accept = ['Accept' => 'application/json, text/event-stream'];
+        $this->postJson('/mcp', $ping, $accept + ['Authorization' => 'Bearer test-token'])->assertOk();
+        $this->postJson('/mcp', $ping, $accept + ['X-Api-Key' => 'test-token'])->assertOk();
     }
 }
