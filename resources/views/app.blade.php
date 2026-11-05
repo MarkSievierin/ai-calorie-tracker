@@ -168,6 +168,7 @@
                                     <input class="input w-24" inputmode="decimal" x-model="productPick.grams" @change="applyProduct" placeholder="грамм">
                                 </div>
                             </div>
+                            <p class="text-xs text-muted" x-show="!products.length">Часто ешь одно и то же? Добавь продукты в <button type="button" class="text-kcal underline" @click="tab = 'settings'">Настройках</button>, тогда их можно выбрать здесь.</p>
                             <label class="block"><span class="label">Что съел</span><input class="input" x-model="mealForm.title" placeholder="например, гречка с курицей"></label>
                             <div class="grid grid-cols-2 gap-2">
                                 <label><span class="label">Калории, ккал *</span><input class="input" inputmode="decimal" x-model="mealForm.kcal" required></label>
@@ -338,25 +339,59 @@
                     <button class="btn w-full py-3" :disabled="busy">Сохранить настройки</button>
                 </form>
 
-                <div class="card space-y-2 text-sm">
-                    <div class="font-semibold">Как подключить к Claude</div>
-                    <ol class="list-decimal space-y-1 pl-5 text-muted">
-                        <li>claude.ai → Настройки → Коннекторы → Добавить свой коннектор.</li>
-                        <li>Адрес: <code class="break-all text-text" x-text="origin + '/mcp?key=ТВОЙ_ТОКЕН'"></code></li>
-                        <li>В чате включи коннектор и отправь фото еды.</li>
-                    </ol>
+                <div class="card space-y-3" id="products">
+                    <div>
+                        <div class="font-semibold">Мои продукты</div>
+                        <div class="text-xs text-muted">Что ешь часто. Агент сначала ищет здесь и считает по этим цифрам, а не на глаз.
+                            Добавить можно тут, или отправь агенту фото этикетки.</div>
+                    </div>
+                    <p class="rounded-xl bg-bg px-3 py-2 text-sm text-muted" x-show="!products.length">Пока пусто.</p>
+                    <div class="divide-y divide-line" x-show="products.length">
+                        <template x-for="p in products" :key="p.id">
+                            <div class="flex items-center justify-between gap-2 py-2 text-sm">
+                                <div class="min-w-0">
+                                    <div class="truncate" x-text="p.name"></div>
+                                    <div class="text-xs text-muted">
+                                        <span x-text="p.kcal_100g"></span> ккал · Б <span x-text="p.protein_100g"></span> · Ж <span x-text="p.fat_100g"></span> · У <span x-text="p.carbs_100g"></span> на 100 г<span x-show="p.default_portion_g"> · порция <span x-text="p.default_portion_g"></span> г</span>
+                                    </div>
+                                </div>
+                                <div class="flex shrink-0 gap-3 text-xs text-muted">
+                                    <button @click="editProduct(p)">изменить</button>
+                                    <button @click="deleteProduct(p)">удалить</button>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                    <button type="button" class="btn-ghost w-full" x-show="!productForm" @click="newProduct">+ Добавить продукт</button>
+                    <form class="space-y-2 border-t border-line pt-3" x-show="productForm" @submit.prevent="saveProduct">
+                        <template x-if="productForm">
+                            <div class="space-y-2">
+                                <label class="block"><span class="label">Название (с маркой, если важно)</span><input class="input" x-model="productForm.name" placeholder="например, творог 5% Галичина"></label>
+                                <div class="text-xs text-muted">На 100 г, как на этикетке:</div>
+                                <div class="grid grid-cols-4 gap-2">
+                                    <label><span class="label">Ккал *</span><input class="input" inputmode="decimal" x-model="productForm.kcal_100g" required></label>
+                                    <label><span class="label">Белки</span><input class="input" inputmode="decimal" x-model="productForm.protein_100g"></label>
+                                    <label><span class="label">Жиры</span><input class="input" inputmode="decimal" x-model="productForm.fat_100g"></label>
+                                    <label><span class="label">Углев.</span><input class="input" inputmode="decimal" x-model="productForm.carbs_100g"></label>
+                                </div>
+                                <label class="block"><span class="label">Обычная порция, г</span><input class="input" inputmode="decimal" x-model="productForm.default_portion_g" placeholder="например, 200"></label>
+                                <div class="flex gap-2">
+                                    <button class="btn flex-1" :disabled="busy || !productForm.name || !productForm.kcal_100g">Сохранить</button>
+                                    <button type="button" class="btn-ghost" @click="productForm = null">Отмена</button>
+                                </div>
+                            </div>
+                        </template>
+                    </form>
                 </div>
 
-                <div class="card space-y-2" x-show="products.length">
-                    <div class="font-semibold">Мои продукты</div>
-                    <div class="text-xs text-muted">Claude сохраняет их по фото этикетки, чтобы считать точно.</div>
-                    <template x-for="p in products" :key="p.id">
-                        <div class="flex items-center justify-between gap-2 text-sm">
-                            <span class="min-w-0 truncate" x-text="p.name"></span>
-                            <span class="whitespace-nowrap text-muted" x-text="p.kcal_100g + ' ккал/100 г'"></span>
-                            <button class="text-xs text-muted" @click="deleteProduct(p)">удалить</button>
-                        </div>
-                    </template>
+                <div class="card space-y-2 text-sm">
+                    <div class="font-semibold">Как подключить агента (Claude и др.)</div>
+                    <ol class="list-decimal space-y-1 pl-5 text-muted">
+                        <li>claude.ai → Settings → Connectors → Add custom connector.</li>
+                        <li>URL: <code class="break-all text-text" x-text="origin + '/mcp'"></code></li>
+                        <li>No sign-in → Request headers: <code class="text-text">Authorization</code> = <code class="text-text">Bearer ТОКЕН</code>.</li>
+                        <li>В чате включи коннектор и отправь фото еды.</li>
+                    </ol>
                 </div>
                 <button class="btn-ghost w-full" @click="logout">Выйти</button>
             </section>
