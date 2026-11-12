@@ -91,4 +91,18 @@ class ApiTest extends TestCase
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 02:00', 'Europe/Kyiv'));
         $this->getJson('/api/day', $this->h)->assertJsonPath('today', '2026-11-09')->assertJsonPath('date', '2026-11-09');
     }
+
+    public function test_put_metric_sets_the_day_value_without_duplicates(): void
+    {
+        // A partial count typed in chat, then the phone exports the total twice.
+        $this->postJson('/api/metrics', ['type' => 'steps', 'value' => 559, 'date' => '2026-11-09', 'notes' => 'by 16:00'], $this->h)->assertCreated();
+        $this->putJson('/api/metrics', ['type' => 'steps', 'value' => 4200, 'date' => '2026-11-09'], $this->h)->assertOk();
+        $this->putJson('/api/metrics?key=test-token', ['type' => 'steps', 'value' => 7310, 'date' => '2026-11-09'])->assertOk()
+            ->assertJsonPath('metric.value', 7310);
+        $this->putJson('/api/metrics', ['type' => 'steps', 'value' => 100, 'date' => '2026-11-10'], $this->h)->assertOk();
+        $this->putJson('/api/metrics', ['type' => 'steps', 'value' => 'many'], $this->h)->assertStatus(422);
+
+        $this->getJson('/api/metrics?from=2026-11-01&to=2026-11-30&types=steps', $this->h)->assertOk()
+            ->assertJsonCount(2, 'items')->assertJsonPath('items.0.value', 7310)->assertJsonPath('items.1.value', 100);
+    }
 }

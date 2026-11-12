@@ -32,6 +32,7 @@ Route::middleware('token')->group(function () {
 
     Route::get('metrics', [MetricController::class, 'index']);
     Route::post('metrics', [MetricController::class, 'store']);
+    Route::put('metrics', [MetricController::class, 'put']);
     Route::delete('metrics/{id}', [MetricController::class, 'destroy'])->whereNumber('id');
 
     Route::get('notes', [NoteController::class, 'index']);

@@ -35,6 +35,10 @@ One user, no registration, one static token.
   be omitted. Why: the agent made arithmetic mistakes and used a wrong piece weight that was stored only in a note;
   a total sent next to product items would double count them, so it is rejected instead of guessed.
   Re-saving a label without `piece_g` / `notes` / `default_portion_g` keeps the stored values.
+- **Automatic exports** (steps from a phone): `PUT /api/metrics` sets the value of a metric for a day and replaces
+  what is there, so a sender may repeat the same day with a growing total (`SetDailyMetricAction`).
+  `POST /api/metrics` still adds a record: several readings a day (blood pressure) are legitimate.
+  iPhone: a Shortcuts automation reads the day's steps from Health and calls the endpoint, see `docs/iphone-steps.md`.
 - Everything is recomputed from history on each request. There is no stored TDEE state that could drift.
 - Times are stored in UTC; a "day" is a local date in `settings.timezone` (Europe/Kyiv by default) that starts at
   `settings.day_start_hour` (0 by default). Why: with a late bedtime a snack at 01:00 belongs to the evening, and
