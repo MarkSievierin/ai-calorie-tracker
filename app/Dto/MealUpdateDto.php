@@ -54,6 +54,15 @@ final readonly class MealUpdateDto
         );
     }
 
+    /** Totals the client sent, keyed by attribute name. */
+    public function sentTotals(): array
+    {
+        return array_filter([
+            'kcal_est' => $this->kcalEst, 'kcal_max' => $this->kcalMax,
+            'protein_g' => $this->proteinG, 'fat_g' => $this->fatG, 'carbs_g' => $this->carbsG,
+        ], fn ($v) => $v !== null);
+    }
+
     public function toAttributes(): array
     {
         return array_filter([

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property-read int $id
  * @property CarbonImmutable $eaten_at
  * @property string $title
- * @property list<array{name: string, grams: float|null, kcal: float}> $items
+ * @property list<array{name: string, grams: float|null, kcal: float, product_id?: int, pieces?: float, kcal_max?: float, protein_g?: float, fat_g?: float, carbs_g?: float}> $items
  * @property float $kcal_est
  * @property float $kcal_max upper bound of the estimate; day totals use it
  * @property float $protein_g

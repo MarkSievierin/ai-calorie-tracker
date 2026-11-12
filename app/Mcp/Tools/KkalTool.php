@@ -27,24 +27,37 @@ abstract class KkalTool extends Tool
     protected function mealSchema(JsonSchema $schema, bool $partial): array
     {
         $r = fn ($type) => $partial ? $type : $type->required();
-        $g = fn (string $what) => $schema->number()->min(0)->description("$what, grams");
         $opt = fn (string $what) => $schema->number()->min(0)->nullable()
             ->description("$what, grams. Fill only when you can estimate it, otherwise omit (never send 0 for unknown)");
 
+        $sumNote = '. Omit when any item has product_id: then the server sums the meal from its items';
+        $total = fn (string $what) => $schema->number()->min(0)->description($what.$sumNote);
+
         return [
             'title' => $r($schema->string()->description('Short dish name, e.g. "Omelette with bread"')),
-            'items' => $r($schema->array()->description('Components of the meal')->items($schema->object([
-                'name' => $schema->string()->description('Item name')->required(),
+            'items' => $r($schema->array()->description(
+                'Components of the meal. For a saved product (find_products) send product_id with grams or pieces '
+                .'and nothing else: the server computes kcal and macros from the label. In a meal with product items, '
+                .'every other item needs kcal, protein_g, fat_g, carbs_g (and kcal_max if above kcal)'
+            )->items($schema->object([
+                'product_id' => $schema->integer()->nullable()->description('Saved product id from find_products'),
+                'name' => $schema->string()->nullable()->description('Item name. Optional for product items (product name is used)'),
                 'grams' => $schema->number()->min(0)->nullable()->description('Portion weight, grams'),
-                'kcal' => $schema->number()->min(0)->description('Energy of this item, kcal')->required(),
+                'pieces' => $schema->number()->min(0)->nullable()
+                    ->description('Number of pieces, only for a product with piece_g. Send grams or pieces, not both'),
+                'kcal' => $schema->number()->min(0)->nullable()->description('Energy of this item, kcal. Required unless product_id'),
+                'kcal_max' => $schema->number()->min(0)->nullable()->description('Upper bound for this item, kcal (product-summed meals only)'),
+                'protein_g' => $schema->number()->min(0)->nullable()->description('Protein of this item, grams (product-summed meals only)'),
+                'fat_g' => $schema->number()->min(0)->nullable()->description('Fat of this item, grams (product-summed meals only)'),
+                'carbs_g' => $schema->number()->min(0)->nullable()->description('Carbohydrates of this item, grams (product-summed meals only)'),
             ]))),
-            'kcal_est' => $r($schema->number()->min(0)->description('Best estimate of energy, kcal')),
-            'kcal_max' => $r($schema->number()->min(0)->description(
+            'kcal_est' => $total('Best estimate of energy, kcal'),
+            'kcal_max' => $total(
                 'Upper bound of the estimate including hidden oil, butter, sauces and dressings, kcal. Must be >= kcal_est. Daily totals use this value'
-            )),
-            'protein_g' => $r($g('Protein')),
-            'fat_g' => $r($g('Fat')),
-            'carbs_g' => $r($g('Carbohydrates')),
+            ),
+            'protein_g' => $total('Protein, grams'),
+            'fat_g' => $total('Fat, grams'),
+            'carbs_g' => $total('Carbohydrates, grams'),
             'sugar_g' => $opt('Sugar'),
             'fiber_g' => $opt('Fiber'),
             'sat_fat_g' => $opt('Saturated fat'),

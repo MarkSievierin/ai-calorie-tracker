@@ -12,18 +12,26 @@ class StoreMealRequest extends ApiRequest
     public static function fieldRules(bool $partial = false): array
     {
         $req = $partial ? 'sometimes' : 'required';
+        // Totals may be omitted when items use product_id; LogMealAction checks which case it is.
+        $total = $partial ? 'sometimes' : 'nullable';
 
         return [
             'title' => [$req, 'string', 'min:1', 'max:200'],
             'items' => [$req, 'array', 'max:50'],
-            'items.*.name' => ['required', 'string', 'max:200'],
+            'items.*.product_id' => ['nullable', 'integer'],
+            'items.*.name' => ['required_without:items.*.product_id', 'nullable', 'string', 'max:200'],
             'items.*.grams' => ['nullable', 'numeric', 'between:0,5000'],
-            'items.*.kcal' => ['required', 'numeric', 'between:0,10000'],
-            'kcal_est' => [$req, 'numeric', 'between:0,20000'],
-            'kcal_max' => [$req, 'numeric', 'between:0,20000', ...($partial ? [] : ['gte:kcal_est'])],
-            'protein_g' => [$req, 'numeric', 'between:0,5000'],
-            'fat_g' => [$req, 'numeric', 'between:0,5000'],
-            'carbs_g' => [$req, 'numeric', 'between:0,5000'],
+            'items.*.pieces' => ['nullable', 'numeric', 'gt:0', 'max:1000'],
+            'items.*.kcal' => ['required_without:items.*.product_id', 'nullable', 'numeric', 'between:0,10000'],
+            'items.*.kcal_max' => ['nullable', 'numeric', 'between:0,10000'],
+            'items.*.protein_g' => ['nullable', 'numeric', 'between:0,5000'],
+            'items.*.fat_g' => ['nullable', 'numeric', 'between:0,5000'],
+            'items.*.carbs_g' => ['nullable', 'numeric', 'between:0,5000'],
+            'kcal_est' => [$total, 'numeric', 'between:0,20000'],
+            'kcal_max' => [$total, 'numeric', 'between:0,20000'], // >= kcal_est is checked in the actions
+            'protein_g' => [$total, 'numeric', 'between:0,5000'],
+            'fat_g' => [$total, 'numeric', 'between:0,5000'],
+            'carbs_g' => [$total, 'numeric', 'between:0,5000'],
             'sugar_g' => ['sometimes', 'nullable', 'numeric', 'between:0,5000'],
             'fiber_g' => ['sometimes', 'nullable', 'numeric', 'between:0,5000'],
             'sat_fat_g' => ['sometimes', 'nullable', 'numeric', 'between:0,5000'],

@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('log_meal')]
-#[Description('Save a meal. Call after you have estimated food from a photo, a description or a label. kcal_max is the upper bound of the estimate including hidden oil and sauces. Energy in kcal, macros in grams. Returns the record id and the day totals (eaten / norm / remaining).')]
+#[Description('Save a meal. Call after you have estimated food from a photo, a description or a label. kcal_max is the upper bound of the estimate including hidden oil and sauces. Energy in kcal, macros in grams. Saved products are logged as items with product_id + grams or pieces, and the server does the arithmetic (do not compute label values yourself). Returns the record id, the saved items with their kcal, and the day totals (eaten / norm / remaining).')]
 class LogMeal extends KkalTool
 {
     public function handle(Request $request): ResponseFactory
@@ -25,6 +25,8 @@ class LogMeal extends KkalTool
         return $this->ok([
             'id' => $meal->id,
             'eaten_at' => $meal->toApi($this->settings()->timezone())['eaten_at'],
+            'items' => $meal->items,
+            'kcal_max' => $meal->kcal_max,
             'day' => app(GetDayBriefAction::class)->handle($date),
         ]);
     }

@@ -7,6 +7,11 @@ use Illuminate\Support\Collection;
 
 class ProductReader
 {
+    public function find(int $id): ?Product
+    {
+        return Product::query()->find($id);
+    }
+
     public function findOrFail(int $id): Product
     {
         return Product::query()->findOrFail($id);

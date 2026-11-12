@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 
 #[Name('update_meal')]
 #[IsIdempotent]
-#[Description('Correct a saved meal: pass its id and only the fields that change (same units as log_meal). Use when the user says the portion, time or dish was different. Returns the updated record.')]
+#[Description('Correct a saved meal: pass its id and only the fields that change (same units as log_meal). Use when the user says the portion, time or dish was different. If the new items use product_id, omit the totals: they are summed from the items again. Returns the updated record.')]
 class UpdateMeal extends KkalTool
 {
     public function handle(Request $request): ResponseFactory

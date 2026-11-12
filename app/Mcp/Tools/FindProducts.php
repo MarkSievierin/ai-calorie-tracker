@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('find_products')]
 #[IsReadOnly]
-#[Description('Look up saved products by part of the name before estimating a packaged food. If found, compute the meal from its per-100 g values (source = label, kcal_max = kcal_est unless extras were added).')]
+#[Description('Look up saved products by part of the name before estimating a packaged or countable food. Returns per-100 g values, default_portion_g, piece_g (weight of one piece) and notes. If found, log the meal with items[].product_id and grams or pieces: the server computes kcal and macros. Read the product notes before using it.')]
 class FindProducts extends KkalTool
 {
     public function handle(Request $request): ResponseFactory

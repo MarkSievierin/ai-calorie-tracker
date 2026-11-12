@@ -29,6 +29,12 @@ One user, no registration, one static token.
 - **Norm** = TDEE x (1 - deficit %), never below `min_kcal`. Changes only on recalculation days.
 - **Flags** (`GetProgressAction`): too_fast (>1 kg/week two weeks in a row), stalled (flat 3 weeks with a deficit),
   low_logging (<2 meals/day over the last 7 days), below_min.
+- **Products** (`save_product`, Settings → My products) hold label values per 100 g, plus optional `piece_g` (weight of
+  one piece) and `notes`. A meal item can point to a product (`product_id` + `grams` or `pieces`): the server computes
+  its kcal and macros (`MealItemsService`), and the whole meal is then summed from its items, so meal-level totals must
+  be omitted. Why: the agent made arithmetic mistakes and used a wrong piece weight that was stored only in a note;
+  a total sent next to product items would double count them, so it is rejected instead of guessed.
+  Re-saving a label without `piece_g` / `notes` / `default_portion_g` keeps the stored values.
 - Everything is recomputed from history on each request. There is no stored TDEE state that could drift.
 - Times are stored in UTC; a "day" is a local date in `settings.timezone` (Europe/Kyiv by default).
 
@@ -61,6 +67,8 @@ Rules:
 - Write actions call `EnergyService::refresh()` so reads in the same request (day totals after a write) see the change.
 - The agent in chat cannot read this repo. It sees only `resources/mcp/instructions.md` (sent as MCP `instructions`)
   and the tool descriptions. Change those when the agent's behaviour should change.
+  `KkalServer` appends the 10 latest notes to the instructions, so earlier findings are known from the first message
+  without the agent having to remember `get_notes`.
 
 ## Auth
 

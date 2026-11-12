@@ -111,7 +111,7 @@
                             <div class="mt-3 space-y-3 border-t border-line pt-3 text-sm" x-show="openMeal === m.id && editing?.id !== m.id">
                                 <div class="space-y-1" x-show="m.items.length">
                                     <template x-for="i in m.items">
-                                        <div class="flex justify-between text-muted"><span><span x-text="i.name"></span><span x-show="i.grams">, <span x-text="Math.round(i.grams)"></span> г</span></span><span x-text="Math.round(i.kcal)"></span></div>
+                                        <div class="flex justify-between text-muted"><span><span x-text="i.name"></span><span x-show="i.pieces">, <span x-text="i.pieces"></span> шт</span><span x-show="i.grams">, <span x-text="Math.round(i.grams)"></span> г</span></span><span x-text="Math.round(i.kcal)"></span></div>
                                     </template>
                                 </div>
                                 <div class="text-xs text-muted">
@@ -352,8 +352,9 @@
                                 <div class="min-w-0">
                                     <div class="truncate" x-text="p.name"></div>
                                     <div class="text-xs text-muted">
-                                        <span x-text="p.kcal_100g"></span> ккал · Б <span x-text="p.protein_100g"></span> · Ж <span x-text="p.fat_100g"></span> · У <span x-text="p.carbs_100g"></span> на 100 г<span x-show="p.default_portion_g"> · порция <span x-text="p.default_portion_g"></span> г</span>
+                                        <span x-text="p.kcal_100g"></span> ккал · Б <span x-text="p.protein_100g"></span> · Ж <span x-text="p.fat_100g"></span> · У <span x-text="p.carbs_100g"></span> на 100 г<span x-show="p.default_portion_g"> · порция <span x-text="p.default_portion_g"></span> г</span><span x-show="p.piece_g"> · 1 шт <span x-text="p.piece_g"></span> г</span>
                                     </div>
+                                    <div class="text-xs text-muted" x-show="p.notes" x-text="p.notes"></div>
                                 </div>
                                 <div class="flex shrink-0 gap-3 text-xs text-muted">
                                     <button @click="editProduct(p)">изменить</button>
@@ -374,7 +375,11 @@
                                     <label><span class="label">Жиры</span><input class="input" inputmode="decimal" x-model="productForm.fat_100g"></label>
                                     <label><span class="label">Углев.</span><input class="input" inputmode="decimal" x-model="productForm.carbs_100g"></label>
                                 </div>
-                                <label class="block"><span class="label">Обычная порция, г</span><input class="input" inputmode="decimal" x-model="productForm.default_portion_g" placeholder="например, 200"></label>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <label><span class="label">Обычная порция, г</span><input class="input" inputmode="decimal" x-model="productForm.default_portion_g" placeholder="например, 200"></label>
+                                    <label><span class="label">Вес 1 шт, г</span><input class="input" inputmode="decimal" x-model="productForm.piece_g" placeholder="например, 1,25"></label>
+                                </div>
+                                <label class="block"><span class="label">Заметка</span><input class="input" maxlength="500" x-model="productForm.notes" placeholder="например, взвешено: 20 шт = 25 г"></label>
                                 <div class="flex gap-2">
                                     <button class="btn flex-1" :disabled="busy || !productForm.name || !productForm.kcal_100g">Сохранить</button>
                                     <button type="button" class="btn-ghost" @click="productForm = null">Отмена</button>

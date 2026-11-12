@@ -15,6 +15,8 @@ class StoreProductRequest extends ApiRequest
             'fat_100g' => ['required', 'numeric', 'between:0,100'],
             'carbs_100g' => ['required', 'numeric', 'between:0,100'],
             'default_portion_g' => ['sometimes', 'nullable', 'numeric', 'between:0,5000'],
+            'piece_g' => ['sometimes', 'nullable', 'numeric', 'gt:0', 'max:5000'],
+            'notes' => ['sometimes', 'nullable', 'string', 'max:500'],
         ];
     }
 

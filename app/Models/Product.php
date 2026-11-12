@@ -12,10 +12,12 @@ use Illuminate\Database\Eloquent\Model;
  * @property float $fat_100g
  * @property float $carbs_100g
  * @property float|null $default_portion_g
+ * @property float|null $piece_g weight of one piece, grams
+ * @property string|null $notes
  */
 class Product extends Model
 {
-    protected $fillable = ['name', 'kcal_100g', 'protein_100g', 'fat_100g', 'carbs_100g', 'default_portion_g'];
+    protected $fillable = ['name', 'kcal_100g', 'protein_100g', 'fat_100g', 'carbs_100g', 'default_portion_g', 'piece_g', 'notes'];
 
     protected function casts(): array
     {
@@ -25,11 +27,12 @@ class Product extends Model
             'fat_100g' => 'float',
             'carbs_100g' => 'float',
             'default_portion_g' => 'float',
+            'piece_g' => 'float',
         ];
     }
 
     public function toApi(): array
     {
-        return $this->only(['id', 'name', 'kcal_100g', 'protein_100g', 'fat_100g', 'carbs_100g', 'default_portion_g']);
+        return $this->only(['id', 'name', 'kcal_100g', 'protein_100g', 'fat_100g', 'carbs_100g', 'default_portion_g', 'piece_g', 'notes']);
     }
 }

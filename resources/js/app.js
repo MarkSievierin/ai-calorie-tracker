@@ -477,10 +477,10 @@ Alpine.data('kkal', () => ({
         });
     },
     newProduct() {
-        this.productForm = { id: null, name: '', kcal_100g: '', protein_100g: '', fat_100g: '', carbs_100g: '', default_portion_g: '' };
+        this.productForm = { id: null, name: '', kcal_100g: '', protein_100g: '', fat_100g: '', carbs_100g: '', default_portion_g: '', piece_g: '', notes: '' };
     },
     editProduct(p) {
-        this.productForm = { ...p, originalName: p.name, default_portion_g: p.default_portion_g ?? '' };
+        this.productForm = { ...p, originalName: p.name, default_portion_g: p.default_portion_g ?? '', piece_g: p.piece_g ?? '', notes: p.notes ?? '' };
     },
     async saveProduct() {
         const f = this.productForm;
@@ -492,6 +492,8 @@ Alpine.data('kkal', () => ({
                     name: f.name.trim(), kcal_100g: num(f.kcal_100g), protein_100g: num(f.protein_100g),
                     fat_100g: num(f.fat_100g), carbs_100g: num(f.carbs_100g),
                     default_portion_g: f.default_portion_g === '' ? null : num(f.default_portion_g),
+                    piece_g: f.piece_g === '' ? null : num(f.piece_g),
+                    notes: f.notes.trim() || null,
                 },
             });
             // Products are keyed by name: a rename saves a new one, so drop the old record.
