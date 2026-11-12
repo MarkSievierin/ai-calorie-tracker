@@ -10,6 +10,8 @@ return [
     // Defaults for the settings table. A row in `settings` overrides the value here.
     'defaults' => [
         'timezone' => 'Europe/Kyiv',
+        // Hour at which a new day starts. 4 = a snack at 01:00 still belongs to the previous day.
+        'day_start_hour' => 0,
         // Personal values are set in the app (Settings); without them the start estimate needs start_tdee.
         'height_cm' => null,
         'age' => null,

@@ -286,7 +286,7 @@
                 <h1 class="text-xl font-semibold">Заметки</h1>
                 <p class="text-sm text-muted">Здесь выводы Claude по твоим данным. Попроси его: «проанализируй мой месяц».</p>
                 <div class="flex flex-wrap gap-2">
-                    <template x-for="k in [['', 'Все'], ['observation', 'Наблюдения'], ['suggestion', 'Советы'], ['question', 'Вопросы']]">
+                    <template x-for="k in [['', 'Все'], ['observation', 'Наблюдения'], ['suggestion', 'Советы'], ['question', 'Вопросы'], ['rule', 'Правила']]">
                         <button class="chip" :class="noteKind === k[0] && 'chip-on'" @click="filterNotes(k[0])" x-text="k[1]"></button>
                     </template>
                 </div>

@@ -66,7 +66,7 @@ abstract class KkalTool extends Tool
             'source' => $r($schema->string()->enum(['photo', 'text', 'label'])
                 ->description('photo = estimated from a photo, text = from a description, label = from a nutrition label')),
             'eaten_at' => $schema->string()->nullable()
-                ->description('When it was eaten, ISO 8601. Without an offset it is read in the user timezone. Omit for "now"'),
+                ->description('When it was really eaten, ISO 8601. Without an offset it is read in the user timezone. Omit for "now". Never shift the time to move a meal to another day: the day start hour setting does that'),
             'notes' => $schema->string()->nullable()->description('Anything worth remembering about this meal'),
         ];
     }

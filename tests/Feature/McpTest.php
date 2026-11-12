@@ -5,14 +5,19 @@ namespace Tests\Feature;
 use App\Mcp\Servers\KkalServer;
 use App\Mcp\Tools\AddNote;
 use App\Mcp\Tools\DeleteMeal;
+use App\Mcp\Tools\DeleteNote;
 use App\Mcp\Tools\FindProducts;
 use App\Mcp\Tools\GetDaySummary;
+use App\Mcp\Tools\GetSettings;
 use App\Mcp\Tools\LogMeal;
 use App\Mcp\Tools\LogWeight;
 use App\Mcp\Tools\RestoreMeal;
 use App\Mcp\Tools\SaveProduct;
 use App\Mcp\Tools\UpdateMeal;
+use App\Mcp\Tools\UpdateProduct;
+use App\Mcp\Tools\UpdateSettings;
 use App\Models\Meal;
+use App\Models\Note;
 use App\Models\Product;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -45,7 +50,7 @@ class McpTest extends TestCase
             $headers + ['MCP-Protocol-Version' => '2025-06-18'])->assertOk();
         $names = collect($list->json('result.tools'))->pluck('name')->all();
         foreach (['log_meal', 'update_meal', 'delete_meal', 'log_weight', 'log_metric', 'get_day_summary',
-            'get_progress', 'get_metrics', 'add_note', 'get_notes'] as $tool) {
+            'get_progress', 'get_metrics', 'add_note', 'get_notes', 'delete_note', 'update_product', 'get_settings', 'update_settings'] as $tool) {
             $this->assertContains($tool, $names);
         }
     }
@@ -196,6 +201,98 @@ class McpTest extends TestCase
             'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
             'params' => ['protocolVersion' => '2025-06-18', 'capabilities' => (object) [], 'clientInfo' => ['name' => 't', 'version' => '1']],
         ], ['Accept' => 'application/json, text/event-stream'])->assertOk();
-        $this->assertStringContainsString('observation: One stick weighs 1.25 g', $init->json('result.instructions'));
+        $this->assertMatchesRegularExpression('/#\d+, \d{4}-\d\d-\d\d, observation: One stick weighs 1.25 g/', $init->json('result.instructions'));
+    }
+
+    private function instructions(): string
+    {
+        return (string) $this->postJson('/mcp?key=test-token', [
+            'jsonrpc' => '2.0', 'id' => 1, 'method' => 'initialize',
+            'params' => ['protocolVersion' => '2025-06-18', 'capabilities' => (object) [], 'clientInfo' => ['name' => 't', 'version' => '1']],
+        ], ['Accept' => 'application/json, text/event-stream'])->assertOk()->json('result.instructions');
+    }
+
+    public function test_day_start_hour_keeps_a_night_snack_in_the_evening_day(): void
+    {
+        KkalServer::tool(UpdateSettings::class, ['day_start_hour' => 4])
+            ->assertStructuredContent(fn ($j) => $j->where('settings.day_start_hour', 4)->etc());
+
+        // 01:05 on Nov 10 belongs to Nov 9; 05:00 on Nov 10 already is Nov 10.
+        KkalServer::tool(LogMeal::class, $this->meal(['eaten_at' => '2026-11-10T01:05:00']))
+            ->assertStructuredContent(fn ($j) => $j->where('day.date', '2026-11-09')->where('eaten_at', '2026-11-10T01:05:00+02:00')->etc());
+        KkalServer::tool(LogMeal::class, $this->meal(['eaten_at' => '2026-11-10T05:00:00', 'kcal_max' => 500]))
+            ->assertStructuredContent(fn ($j) => $j->where('day.date', '2026-11-10')->etc());
+
+        KkalServer::tool(GetDaySummary::class, ['date' => '2026-11-09'])
+            ->assertStructuredContent(fn ($j) => $j->where('totals.kcal', 400)->etc());
+        KkalServer::tool(GetDaySummary::class, ['date' => '2026-11-10'])
+            ->assertStructuredContent(fn ($j) => $j->where('totals.kcal', 500)->etc());
+
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 02:00', 'Europe/Kyiv'));
+        KkalServer::tool(GetSettings::class, [])->assertStructuredContent(fn ($j) => $j->where('today', '2026-11-09')->etc());
+    }
+
+    public function test_settings_tool_sets_the_profile_and_rejects_bad_values(): void
+    {
+        CarbonImmutable::setTestNow('2026-11-05 10:00:00');
+        KkalServer::tool(LogWeight::class, ['weight_kg' => 90])->assertOk();
+        KkalServer::tool(UpdateSettings::class, ['height_cm' => 180, 'age' => 30, 'target_weight_kg' => 80])
+            ->assertStructuredContent(fn ($j) => $j->where('settings.target_weight_kg', 80)->where('norm_kcal', 1918)->etc());
+        KkalServer::tool(UpdateSettings::class, ['deficit_pct' => 50])->assertHasErrors();
+        $this->assertStringContainsString('height 180 cm, age 30', $this->instructions());
+    }
+
+    public function test_rules_stay_in_instructions_and_notes_can_be_deleted(): void
+    {
+        KkalServer::tool(AddNote::class, ['kind' => 'rule', 'text' => 'Coffee is always with 10 ml of milk'])->assertOk();
+        KkalServer::tool(AddNote::class, ['kind' => 'observation', 'text' => 'Stale finding'])->assertOk();
+        // Rules are not pushed out by newer findings.
+        foreach (range(1, 12) as $i) {
+            KkalServer::tool(AddNote::class, ['kind' => 'observation', 'text' => "Finding $i"])->assertOk();
+        }
+        $rule = Note::query()->where('kind', 'rule')->firstOrFail();
+
+        $text = $this->instructions();
+        $this->assertStringContainsString("- #{$rule->id}: Coffee is always with 10 ml of milk", $text);
+        $this->assertStringContainsString('Finding 12', $text);
+        $this->assertStringNotContainsString('Stale finding', $text);
+
+        KkalServer::tool(DeleteNote::class, ['id' => $rule->id])->assertOk();
+        $this->assertStringNotContainsString('10 ml of milk', $this->instructions());
+    }
+
+    public function test_instructions_list_saved_products(): void
+    {
+        $p = $this->sticks();
+        $this->assertStringContainsString(
+            "- id {$p->id}: Salted sticks Vladka; 376 kcal/100 g; piece 1.25 g; note: weighed: 20 pcs = 25 g",
+            $this->instructions(),
+        );
+    }
+
+    public function test_product_is_changed_by_id_without_the_label(): void
+    {
+        $p = $this->sticks(['piece_g' => null]);
+        KkalServer::tool(UpdateProduct::class, ['id' => $p->id, 'piece_g' => 1.3, 'name' => 'Sweet sticks Vladka'])
+            ->assertStructuredContent(fn ($j) => $j->where('product.name', 'Sweet sticks Vladka')->where('product.piece_g', 1.3)
+                ->where('product.kcal_100g', 376)->where('product.notes', 'weighed: 20 pcs = 25 g')->etc());
+        $this->assertSame(1, Product::query()->count());
+
+        KkalServer::tool(SaveProduct::class, ['name' => 'Banana', 'kcal_100g' => 89, 'protein_100g' => 1, 'fat_100g' => 0, 'carbs_100g' => 23])->assertOk();
+        KkalServer::tool(UpdateProduct::class, ['id' => $p->id, 'name' => 'Banana'])->assertHasErrors(['already named']);
+        KkalServer::tool(UpdateProduct::class, ['id' => $p->id, 'kcal_100g' => 5000])->assertHasErrors();
+    }
+
+    public function test_products_are_found_by_words_in_any_order_and_form(): void
+    {
+        KkalServer::tool(SaveProduct::class, ['name' => 'Соломка сладкая Vladka 200 г', 'kcal_100g' => 376, 'protein_100g' => 10, 'fat_100g' => 4, 'carbs_100g' => 74])->assertOk();
+        KkalServer::tool(SaveProduct::class, ['name' => 'Кефір 1% Люстдорф', 'kcal_100g' => 35, 'protein_100g' => 3, 'fat_100g' => 1, 'carbs_100g' => 4])->assertOk();
+
+        foreach (['vladka соломка', 'соломки', 'СОЛОМКУ сладкую'] as $query) {
+            KkalServer::tool(FindProducts::class, ['query' => $query])->assertStructuredContent(fn ($j) => $j
+                ->has('products', 1)->where('products.0.name', 'Соломка сладкая Vladka 200 г')->etc());
+        }
+        KkalServer::tool(FindProducts::class, ['query' => 'соломка люстдорф'])->assertStructuredContent(fn ($j) => $j->has('products', 0)->etc());
+        KkalServer::tool(FindProducts::class, ['query' => ''])->assertStructuredContent(fn ($j) => $j->has('products', 2)->etc());
     }
 }

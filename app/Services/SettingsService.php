@@ -39,22 +39,33 @@ class SettingsService
         return (string) $this->get('timezone');
     }
 
+    /**
+     * Hour at which the user's day starts. People who stay up late eat after midnight: with 4, a snack at 01:00
+     * counts towards the evening it belongs to, and nobody has to fake the meal time to keep the day together.
+     */
+    public function dayStartHour(): int
+    {
+        return (int) $this->get('day_start_hour');
+    }
+
     public function today(): string
     {
-        return CarbonImmutable::now($this->timezone())->toDateString();
+        return $this->localDate(CarbonImmutable::now());
     }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} UTC bounds [from, to) of a local date */
     public function dayBounds(string $date): array
     {
-        $start = CarbonImmutable::parse($date, $this->timezone())->startOfDay();
+        $day = CarbonImmutable::parse($date, $this->timezone())->startOfDay();
+        $hour = $this->dayStartHour();
 
-        return [$start->utc(), $start->addDay()->utc()];
+        return [$day->setTime($hour, 0)->utc(), $day->addDay()->setTime($hour, 0)->utc()];
     }
 
+    /** The user's day a moment belongs to (shifted by the day start hour). */
     public function localDate(\DateTimeInterface $at): string
     {
-        return CarbonImmutable::instance($at)->setTimezone($this->timezone())->toDateString();
+        return CarbonImmutable::instance($at)->setTimezone($this->timezone())->subHours($this->dayStartHour())->toDateString();
     }
 
     public static function shift(string $date, int $days): string

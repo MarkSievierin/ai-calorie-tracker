@@ -13,6 +13,14 @@ class ProductWriter
         return Product::query()->updateOrCreate(['name' => $dto->name], $dto->toAttributes());
     }
 
+    /** @param array<string, mixed> $attributes only the columns that change */
+    public function update(Product $product, array $attributes): Product
+    {
+        $product->update($attributes);
+
+        return $product;
+    }
+
     public function delete(Product $product): void
     {
         $product->delete();

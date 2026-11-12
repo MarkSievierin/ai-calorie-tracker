@@ -10,7 +10,7 @@ return new class extends Migration
     {
         Schema::create('notes', function (Blueprint $table) {
             $table->id();
-            $table->string('kind', 20); // observation | suggestion | question
+            $table->string('kind', 20); // observation | suggestion | question | rule
             $table->text('text');
             $table->json('related')->nullable(); // metric types and/or dates the note is about
             $table->string('author', 10)->default('claude'); // claude | user

@@ -36,7 +36,14 @@ One user, no registration, one static token.
   a total sent next to product items would double count them, so it is rejected instead of guessed.
   Re-saving a label without `piece_g` / `notes` / `default_portion_g` keeps the stored values.
 - Everything is recomputed from history on each request. There is no stored TDEE state that could drift.
-- Times are stored in UTC; a "day" is a local date in `settings.timezone` (Europe/Kyiv by default).
+- Times are stored in UTC; a "day" is a local date in `settings.timezone` (Europe/Kyiv by default) that starts at
+  `settings.day_start_hour` (0 by default). Why: with a late bedtime a snack at 01:00 belongs to the evening, and
+  the agent used to fake `eaten_at` (23:59) to keep it there. All day grouping goes through
+  `SettingsService::localDate()` / `dayBounds()` / `today()`; the web app takes "today" from `/api/day`, not from the browser.
+- **Products are not only labels**: food eaten again and again (banana, boiled egg) is saved with reference values, so
+  it is counted the same way every day. `update_product` (MCP) / `PATCH /api/products/{id}` changes a product by id
+  without resending the label. Search is by words in any order with a crude stem (last two letters of 5+ letter
+  words are dropped), filtered in PHP: SQLite and Postgres lowercase Cyrillic differently.
 
 ## Architecture
 
@@ -62,13 +69,20 @@ Rules:
 - Validation lives in FormRequests. MCP tools reuse `XxxRequest::fieldRules()`, so REST and MCP accept the same data.
 - Partial updates (`MealUpdateDto`): null = "not changed", filtered out. Settings are the exception: null there is a
   real value ("no target weight"), so `SettingsUpdateDto` keeps exactly the keys sent.
-- Enums for closed sets: `Confidence`, `MealSource`, `NoteKind`, `NoteAuthor`, `TdeeSource`.
+- Enums for closed sets: `Confidence`, `MealSource`, `NoteKind` (observation, suggestion, question, rule), `NoteAuthor`, `TdeeSource`.
   Metric types are an open set on purpose (steps, sleep_h, bp_sys, ...): a new metric needs no migration or enum case.
 - Write actions call `EnergyService::refresh()` so reads in the same request (day totals after a write) see the change.
 - The agent in chat cannot read this repo. It sees only `resources/mcp/instructions.md` (sent as MCP `instructions`)
   and the tool descriptions. Change those when the agent's behaviour should change.
-  `KkalServer` appends the 10 latest notes to the instructions, so earlier findings are known from the first message
-  without the agent having to remember `get_notes`.
+  `KkalServer` appends to the instructions everything the agent would otherwise have to remember to look up:
+  the profile (settings, today, TDEE, norm), all `rule` notes, the saved products and the 10 latest other notes.
+  Why: in real chats the agent forgot `get_notes` / `find_products`, estimated staples anew each time and wrote
+  height and age into metrics because it could not see the settings.
+- Notes of kind `rule` are standing facts from the user ("side dishes at home are always with butter"). They are
+  always sent and never pushed out by newer notes; `delete_note` removes what is outdated (the agent could not
+  delete before, so wrong notes kept coming back).
+- `get_settings` / `update_settings` give the agent the profile and goal. Settings are changed only on the user's request.
+- `KkalServer::$defaultPaginationLength` is 50, so all tools fit one `tools/list` page (the package default is 15).
 
 ## Auth
 

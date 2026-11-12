@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('add_note')]
-#[Description('Save a conclusion from the data so it shows in the app and in later chats. Only observations from the data, no diagnoses. Phrase worrying signals as "show to a doctor". kind: observation (what the data shows), suggestion (what to try), question (what to clarify). related: metric types and/or dates YYYY-MM-DD the note is about.')]
+#[Description('Save a conclusion from the data so it shows in the app and in later chats. Only observations from the data, no diagnoses. Phrase worrying signals as "show to a doctor". kind: observation (what the data shows), suggestion (what to try), question (what to clarify), rule (a standing fact or preference the user stated, e.g. "side dishes at home are always cooked with butter": rules are shown in every chat until deleted). Facts about one product go into the product, not into a note. related: metric types and/or dates YYYY-MM-DD the note is about.')]
 class AddNote extends KkalTool
 {
     public function handle(Request $request): ResponseFactory
@@ -26,7 +26,7 @@ class AddNote extends KkalTool
     public function schema(JsonSchema $schema): array
     {
         return [
-            'kind' => $schema->string()->enum(['observation', 'suggestion', 'question'])->required(),
+            'kind' => $schema->string()->enum(['observation', 'suggestion', 'question', 'rule'])->required(),
             'text' => $schema->string()->description('The note, short and concrete')->required(),
             'related' => $schema->array()->items($schema->string())->nullable()->description('e.g. ["weight", "2026-11-05"]'),
         ];

@@ -53,6 +53,7 @@ const SETTING_GROUPS = [
         fields: [
             { key: 'start_tdee', label: 'Свой стартовый расход, ккал (пусто = по формуле)', step: '10', optional: true },
             { key: 'timezone', label: 'Часовой пояс', type: 'text' },
+            { key: 'day_start_hour', label: 'День начинается в, час (4 = ночной перекус идёт во вчера)', step: '1' },
         ],
     },
 ];
@@ -98,6 +99,8 @@ Alpine.data('kkal', () => ({
     toast: '',
     toastAction: null,
 
+    // The current day as the server sees it (timezone, day start hour); the browser date until the first load.
+    serverToday: null,
     date: isoDate(new Date()),
     day: null,
     openMeal: null,
@@ -189,7 +192,10 @@ Alpine.data('kkal', () => ({
 
     // ---------- Today ----------
     async loadToday() {
-        this.day = await api('day?date=' + this.date);
+        // First load: let the server pick the day, after midnight it may still be "yesterday".
+        this.day = await api(this.serverToday ? 'day?date=' + this.date : 'day');
+        this.serverToday = this.day.today;
+        this.date = this.day.date;
         if (!this.products.length) this.products = (await api('products')).products;
     },
     shiftDay(n) {
@@ -198,17 +204,17 @@ Alpine.data('kkal', () => ({
     },
     goToDate(d) {
         if (!d) return;
-        this.date = d > isoDate(new Date()) ? isoDate(new Date()) : d;
+        this.date = d > this.todayIso ? this.todayIso : d;
         if (this.tab === 'today') this.run(() => this.loadToday());
         else this.tab = 'today';
     },
-    get todayIso() { return isoDate(new Date()); },
+    get todayIso() { return this.serverToday ?? isoDate(new Date()); },
     get remainingText() {
         const r = this.day?.remaining_kcal;
         if (r === null || r === undefined) return '';
         return r >= 0 ? `Осталось ${Math.round(r)}` : `Сверх нормы ${Math.round(-r)}`;
     },
-    get weighedToday() { return this.day?.weight?.measured_on === isoDate(new Date()); },
+    get weighedToday() { return this.day?.weight?.measured_on === this.todayIso; },
     signed(v, unit = '') {
         if (v === null || v === undefined) return '—';
         return (v > 0 ? '+' : '') + v + unit;
@@ -223,10 +229,10 @@ Alpine.data('kkal', () => ({
         this.editing = null;
         this.openMeal = this.openMeal === m.id ? null : m.id;
     },
-    get isToday() { return this.date === isoDate(new Date()); },
+    get isToday() { return this.date === this.todayIso; },
     get dayTitle() {
         if (this.isToday) return 'Сегодня';
-        if (this.date === addDays(isoDate(new Date()), -1)) return 'Вчера';
+        if (this.date === addDays(this.todayIso, -1)) return 'Вчера';
         return new Date(this.date + 'T12:00:00').toLocaleDateString('ru-RU', { weekday: 'short', day: 'numeric', month: 'long' });
     },
     get eatenPct() {
@@ -457,7 +463,7 @@ Alpine.data('kkal', () => ({
         });
     },
     isDate: (s) => /^\d{4}-\d{2}-\d{2}$/.test(s),
-    kindLabel: (k) => ({ observation: 'Наблюдение', suggestion: 'Совет', question: 'Вопрос' }[k] ?? k),
+    kindLabel: (k) => ({ observation: 'Наблюдение', suggestion: 'Совет', question: 'Вопрос', rule: 'Правило' }[k] ?? k),
 
     // ---------- Settings ----------
     async loadSettings() {

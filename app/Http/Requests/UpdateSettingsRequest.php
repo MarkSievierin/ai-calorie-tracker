@@ -11,6 +11,7 @@ class UpdateSettingsRequest extends ApiRequest
     {
         return [
             'timezone' => ['sometimes', 'string', 'timezone:all'],
+            'day_start_hour' => ['sometimes', 'integer', 'between:0,8'],
             'height_cm' => ['sometimes', 'nullable', 'numeric', 'between:100,250'],
             'age' => ['sometimes', 'nullable', 'integer', 'between:10,120'],
             'target_weight_kg' => ['sometimes', 'nullable', 'numeric', 'between:30,300'],

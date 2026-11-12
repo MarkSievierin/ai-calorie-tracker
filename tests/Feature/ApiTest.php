@@ -78,4 +78,17 @@ class ApiTest extends TestCase
         $this->postJson('/api/notes', ['kind' => 'observation', 'text' => 'hi', 'related' => ['2026-11-01']], $this->h)->assertCreated();
         $this->getJson('/api/notes?kind=observation', $this->h)->assertJsonPath('notes.0.author', 'user');
     }
+
+    public function test_product_patch_and_server_today(): void
+    {
+        $id = $this->postJson('/api/products', ['name' => 'Tuna', 'kcal_100g' => 110, 'protein_100g' => 25, 'fat_100g' => 1, 'carbs_100g' => 0], $this->h)
+            ->assertCreated()->json('product.id');
+        $this->patchJson("/api/products/$id", ['piece_g' => 185, 'notes' => ' one can '], $this->h)
+            ->assertOk()->assertJsonPath('product.piece_g', 185)->assertJsonPath('product.notes', 'one can')->assertJsonPath('product.kcal_100g', 110);
+
+        // 02:00 with the day starting at 04:00 is still the previous day for the web app.
+        $this->putJson('/api/settings', ['day_start_hour' => 4], $this->h)->assertOk();
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-11-10 02:00', 'Europe/Kyiv'));
+        $this->getJson('/api/day', $this->h)->assertJsonPath('today', '2026-11-09')->assertJsonPath('date', '2026-11-09');
+    }
 }

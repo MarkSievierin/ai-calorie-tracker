@@ -29,7 +29,7 @@ class GetNotes extends KkalTool
         return [
             'from' => $schema->string()->nullable()->description('YYYY-MM-DD'),
             'to' => $schema->string()->nullable()->description('YYYY-MM-DD'),
-            'kind' => $schema->string()->enum(['observation', 'suggestion', 'question'])->nullable(),
+            'kind' => $schema->string()->enum(['observation', 'suggestion', 'question', 'rule'])->nullable(),
         ];
     }
 }

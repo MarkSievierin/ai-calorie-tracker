@@ -12,7 +12,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Attributes\Name;
 
 #[Name('log_metric')]
-#[Description('Save any other daily metric. Known types: steps (count), sleep_h (hours), bp_sys and bp_dia (mmHg, save blood pressure as two calls), pulse (bpm), waist_cm (cm). A new type is fine: snake_case with the unit in the name. Returns ok.')]
+#[Description('Save any other daily metric. Known types: steps (count), sleep_h (hours), bp_sys and bp_dia (mmHg, save blood pressure as two calls), pulse (bpm), waist_cm (cm). A new type is fine: snake_case with the unit in the name. Height, age and target weight are not metrics: use update_settings. Returns ok.')]
 class LogMetric extends KkalTool
 {
     public function handle(Request $request): ResponseFactory

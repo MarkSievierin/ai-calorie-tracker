@@ -20,7 +20,7 @@ class UpdateSettingsAction
     {
         $this->writer->put($dto->values);
         $this->settings->refresh();
-        // Timezone changes regroup days.
+        // Timezone and day start hour changes regroup days.
         $this->energy->refresh();
 
         return $this->settings->all();
