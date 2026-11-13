@@ -54,9 +54,9 @@
                                     <span class="text-muted">из <span x-text="day.norm_kcal"></span> ккал</span></div>
                             </div>
                             <div class="mt-3 h-3 overflow-hidden rounded-full bg-line">
-                                <div class="h-full rounded-full transition-all" :class="day.remaining_kcal < 0 ? 'bg-bad' : 'bg-accent'" :style="`width: ${eatenPct}%`"></div>
+                                <div class="h-full rounded-full transition-all" :class="'bg-' + dayTone" :style="`width: ${eatenPct}%`"></div>
                             </div>
-                            <div class="mt-2 text-lg font-semibold" :class="day.remaining_kcal < 0 ? 'text-bad' : 'text-accent'" x-text="remainingText"></div>
+                            <div class="mt-2 text-lg font-semibold" :class="'text-' + dayTone" x-text="remainingText"></div>
                         </div>
                     </template>
                     <template x-if="day && !day.norm_kcal">
@@ -98,7 +98,7 @@
                         <h2 class="text-sm font-semibold text-muted">Приёмы пищи</h2>
                         <span class="text-xs text-muted">нажми, чтобы открыть</span>
                     </div>
-                    <template x-for="m in day?.meals ?? []" :key="m.id">
+                    <template x-for="m in mealList" :key="m.id">
                         <div class="card">
                             <button class="flex w-full items-center justify-between text-left" @click="toggleMeal(m)">
                                 <div class="min-w-0">
@@ -243,7 +243,7 @@
                 </div>
                 <div class="card">
                     <div class="h-60"><canvas id="calChart"></canvas></div>
-                    <p class="mt-2 text-xs text-muted">Столбики: съедено за день (оранжевые = выше нормы). Зелёная линия: норма. Пунктир: расход, при котором вес стоит на месте.</p>
+                    <p class="mt-2 text-xs text-muted">Столбики: съедено за день (оранжевые = выше нормы до 150 ккал, красные = больше). Зелёная линия: норма. Пунктир: расход, при котором вес стоит на месте.</p>
                 </div>
                 <p class="text-xs text-muted" x-show="progress && progress.energy.tdee_reliable === false">Последний пересчёт пропущен: много дней без записей, оставлено прошлое значение.</p>
             </section>

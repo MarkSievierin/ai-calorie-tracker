@@ -12,6 +12,10 @@ Chart.defaults.font.family = 'system-ui, -apple-system, sans-serif';
 
 const COLORS = { kcal: '#60a5fa', accent: '#4ade80', warn: '#f59e0b', muted: '#8b93a3', bad: '#f87171' };
 
+// Going over the norm by up to this much is within the estimate error: shown as a warning, not as a failure.
+const OVER_TOLERANCE_KCAL = 150;
+const overTone = (kcal, norm) => (!norm || kcal <= norm ? 'accent' : (kcal - norm <= OVER_TOLERANCE_KCAL ? 'warn' : 'bad'));
+
 const METRIC_LABELS = {
     steps: 'Шаги', sleep_h: 'Сон, ч', bp_sys: 'Давление верхнее', bp_dia: 'Давление нижнее',
     pulse: 'Пульс', waist_cm: 'Талия, см',
@@ -82,6 +86,15 @@ const addDays = (date, n) => {
     return isoDate(d);
 };
 const round = (v, digits = 0) => (v === null || v === undefined ? null : Number(Number(v).toFixed(digits)));
+// Numbers typed by hand: phone keyboards in the ru locale give a decimal comma, which Number() reads as NaN.
+// An empty field counts as `empty`; anything that is not a number stops the save with a readable message.
+const num = (v, label, empty = 0) => {
+    const s = String(v ?? '').trim().replace(',', '.');
+    if (s === '') return empty;
+    const n = Number(s);
+    if (!Number.isFinite(n)) throw new Error(`${label}: нужно число`);
+    return n;
+};
 
 const charts = {};
 function draw(id, config) {
@@ -208,12 +221,16 @@ Alpine.data('kkal', () => ({
         if (this.tab === 'today') this.run(() => this.loadToday());
         else this.tab = 'today';
     },
+    // Newest first, like the weight, metric and note lists. The API keeps the day chronological for the agent.
+    get mealList() { return [...(this.day?.meals ?? [])].reverse(); },
     get todayIso() { return this.serverToday ?? isoDate(new Date()); },
     get remainingText() {
         const r = this.day?.remaining_kcal;
         if (r === null || r === undefined) return '';
         return r >= 0 ? `Осталось ${Math.round(r)}` : `Сверх нормы ${Math.round(-r)}`;
     },
+    // Literal class names so Tailwind keeps them: bg-accent bg-warn bg-bad text-accent text-warn text-bad
+    get dayTone() { return this.day?.norm_kcal ? overTone(this.day.totals.kcal, this.day.norm_kcal) : 'accent'; },
     get weighedToday() { return this.day?.weight?.measured_on === this.todayIso; },
     signed(v, unit = '') {
         if (v === null || v === undefined) return '—';
@@ -254,26 +271,39 @@ Alpine.data('kkal', () => ({
     },
     applyProduct() {
         const p = this.products.find((x) => String(x.id) === String(this.productPick.id));
-        if (!p) return;
-        const g = Number(this.productPick.grams || p.default_portion_g || 100);
+        if (!p) {
+            Object.assign(this.mealForm, { fromLabel: false, productName: undefined, grams: undefined });
+            return;
+        }
+        let g;
+        try {
+            g = num(this.productPick.grams, 'Граммы', null) ?? p.default_portion_g ?? 100;
+        } catch (e) {
+            this.error = e.message;
+            return;
+        }
+        this.error = '';
         this.productPick.grams = g;
         const k = g / 100;
         Object.assign(this.mealForm, {
             title: `${p.name}, ${g} г`, kcal: round(p.kcal_100g * k), protein_g: round(p.protein_100g * k, 1),
             fat_g: round(p.fat_100g * k, 1), carbs_g: round(p.carbs_100g * k, 1), fromLabel: true,
+            productName: p.name, grams: g,
         });
     },
     async saveNewMeal() {
         const f = this.mealForm;
         await this.run(async () => {
-            const kcal = Number(f.kcal);
+            const kcal = num(f.kcal, 'Калории');
+            const title = f.title.trim() || 'Без названия';
             await api('meals', {
                 method: 'POST',
                 body: {
-                    title: f.title || 'Без названия',
-                    items: [{ name: f.title || 'Без названия', grams: this.productPick.grams ? Number(this.productPick.grams) : null, kcal }],
+                    title,
+                    // From a product: the item keeps the product name, the grams go separately (the title already has them).
+                    items: [{ name: f.productName ?? title, grams: f.grams ?? null, kcal }],
                     kcal_est: kcal, kcal_max: kcal,
-                    protein_g: Number(f.protein_g || 0), fat_g: Number(f.fat_g || 0), carbs_g: Number(f.carbs_g || 0),
+                    protein_g: num(f.protein_g, 'Белки'), fat_g: num(f.fat_g, 'Жиры'), carbs_g: num(f.carbs_g, 'Углеводы'),
                     confidence: f.fromLabel ? 'high' : 'medium', source: f.fromLabel ? 'label' : 'text',
                     eaten_at: `${this.date}T${f.time || '12:00'}:00`,
                     notes: 'Введено вручную на сайте',
@@ -293,11 +323,13 @@ Alpine.data('kkal', () => ({
     async saveEdit() {
         const e = this.editing;
         await this.run(async () => {
+            // The form edits the counted value (kcal_max). Lowering it below the estimate pulls the estimate down too.
+            const kcalMax = num(e.kcal_max, 'Ккал');
             await api('meals/' + e.id, {
                 method: 'PATCH',
                 body: {
-                    title: e.title, kcal_est: Number(e.kcal_est), kcal_max: Math.max(Number(e.kcal_max), Number(e.kcal_est)),
-                    protein_g: Number(e.protein_g), fat_g: Number(e.fat_g), carbs_g: Number(e.carbs_g),
+                    title: e.title, kcal_est: Math.min(Number(e.kcal_est), kcalMax), kcal_max: kcalMax,
+                    protein_g: num(e.protein_g, 'Белки'), fat_g: num(e.fat_g, 'Жиры'), carbs_g: num(e.carbs_g, 'Углеводы'),
                     eaten_at: `${this.date}T${e.time}:00`, notes: e.notes || null,
                 },
             });
@@ -325,7 +357,7 @@ Alpine.data('kkal', () => ({
     async quickWeight() {
         if (!this.weightInput) return;
         await this.run(async () => {
-            const r = await api('weights', { method: 'POST', body: { weight_kg: Number(String(this.weightInput).replace(',', '.')) } });
+            const r = await api('weights', { method: 'POST', body: { weight_kg: num(this.weightInput, 'Вес') } });
             this.weightInput = '';
             const change = r.trend_change_week_kg;
             this.notify(`Вес ${r.weight.weight_kg} кг · тренд ${r.trend_kg}` + (change !== null ? ` (${change > 0 ? '+' : ''}${change} за неделю)` : ''));
@@ -379,7 +411,7 @@ Alpine.data('kkal', () => ({
             data: {
                 labels: this.calories.map((d) => d.date.slice(5)),
                 datasets: [
-                    { type: 'bar', label: 'Съедено', data: this.calories.map((d) => d.kcal), backgroundColor: this.calories.map((d) => (d.norm_kcal && d.kcal > d.norm_kcal ? COLORS.warn : COLORS.kcal)), borderRadius: 4, order: 3 },
+                    { type: 'bar', label: 'Съедено', data: this.calories.map((d) => d.kcal), backgroundColor: this.calories.map((d) => ({ accent: COLORS.kcal, warn: COLORS.warn, bad: COLORS.bad }[overTone(d.kcal, d.norm_kcal)])), borderRadius: 4, order: 3 },
                     { type: 'line', label: 'Норма', data: this.calories.map((d) => d.norm_kcal), borderColor: COLORS.accent, pointRadius: 0, stepped: true, order: 1 },
                     { type: 'line', label: 'Расход', data: this.calories.map((d) => d.tdee_kcal), borderColor: COLORS.muted, borderDash: [4, 4], pointRadius: 0, stepped: true, order: 2 },
                 ],
@@ -427,7 +459,7 @@ Alpine.data('kkal', () => ({
     async saveMetric() {
         const f = this.metricForm;
         await this.run(async () => {
-            await api('metrics', { method: 'POST', body: { type: f.type.trim(), value: Number(String(f.value).replace(',', '.')), date: f.date } });
+            await api('metrics', { method: 'POST', body: { type: f.type.trim(), value: num(f.value, 'Значение'), date: f.date } });
             this.metricForm.value = '';
             this.metricType = f.type.trim();
             await this.loadMetrics();
@@ -437,6 +469,8 @@ Alpine.data('kkal', () => ({
         await this.run(async () => {
             await api('metrics/' + m.id, { method: 'DELETE' });
             await this.loadMetrics();
+            // The last record of a custom type is gone: its chip disappears, go back to a type that exists.
+            if (!this.metricTypes.includes(this.metricType)) this.selectMetric('steps');
         });
     },
 
@@ -490,15 +524,14 @@ Alpine.data('kkal', () => ({
     },
     async saveProduct() {
         const f = this.productForm;
-        const num = (v) => Number(String(v || 0).replace(',', '.'));
         await this.run(async () => {
             await api('products', {
                 method: 'POST',
                 body: {
-                    name: f.name.trim(), kcal_100g: num(f.kcal_100g), protein_100g: num(f.protein_100g),
-                    fat_100g: num(f.fat_100g), carbs_100g: num(f.carbs_100g),
-                    default_portion_g: f.default_portion_g === '' ? null : num(f.default_portion_g),
-                    piece_g: f.piece_g === '' ? null : num(f.piece_g),
+                    name: f.name.trim(), kcal_100g: num(f.kcal_100g, 'Ккал'), protein_100g: num(f.protein_100g, 'Белки'),
+                    fat_100g: num(f.fat_100g, 'Жиры'), carbs_100g: num(f.carbs_100g, 'Углеводы'),
+                    default_portion_g: num(f.default_portion_g, 'Порция', null),
+                    piece_g: num(f.piece_g, 'Вес 1 шт', null),
                     notes: f.notes.trim() || null,
                 },
             });
