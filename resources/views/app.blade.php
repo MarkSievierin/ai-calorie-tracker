@@ -401,10 +401,10 @@
                 <button class="btn-ghost w-full" @click="logout">Выйти</button>
             </section>
 
-            {{-- Toast --}}
+            {{-- Toast. Compare toastAction to null: Alpine calls a bare function expression, which would run the undo at once. --}}
             <div class="fixed inset-x-4 bottom-24 z-20 mx-auto flex max-w-xl items-center justify-between rounded-xl bg-line px-4 py-3 text-sm shadow-lg" x-show="toast" x-transition>
                 <span x-text="toast"></span>
-                <button class="ml-3 font-semibold text-accent" x-show="toastAction" @click="undo">Вернуть</button>
+                <button class="ml-3 font-semibold text-accent" x-show="toastAction !== null" @click="undo">Вернуть</button>
             </div>
 
             {{-- Tabs --}}
