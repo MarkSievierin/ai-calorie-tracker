@@ -30,6 +30,13 @@
 
     <template x-if="authed">
         <div>
+            {{-- Pull-to-refresh indicator --}}
+            <div class="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center" x-show="pull > 10"
+                 :style="`padding-top: calc(env(safe-area-inset-top) + ${pull / 2}px)`">
+                <div class="rounded-full bg-line px-3 py-1 text-xs shadow-lg" :class="pullReady ? 'text-accent' : 'text-muted'"
+                     x-text="pullReady ? '↻ Отпусти, чтобы обновить' : '↓ Потяни, чтобы обновить'"></div>
+            </div>
+
             <p class="mb-3 rounded-xl bg-bad/15 px-3 py-2 text-sm text-bad" x-show="error" x-text="error"></p>
 
             {{-- Today --}}
@@ -42,6 +49,7 @@
                         <input type="date" class="absolute inset-0 opacity-0" :max="todayIso" :value="date" @change="goToDate($event.target.value)">
                     </label>
                     <button class="btn-ghost px-4" @click="shiftDay(1)" :disabled="isToday" :class="isToday && 'opacity-30'" aria-label="Следующий день">›</button>
+                    <button class="btn-ghost px-3" @click="reload" aria-label="Обновить">↻</button>
                 </header>
                 <button class="btn-ghost w-full" x-show="!isToday" @click="goToDate(todayIso)">Вернуться к сегодня</button>
 

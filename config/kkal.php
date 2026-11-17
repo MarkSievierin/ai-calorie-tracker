@@ -23,6 +23,11 @@ return [
         'min_kcal' => 1800,
     ],
 
+    // Settings that shape the norm and keep a dated history: a change applies from the day it is made, past days
+    // keep the norm they had. Profile values (height, age, activity, start TDEE) are corrections of facts, so a
+    // change there recomputes the whole history on purpose.
+    'dated_settings' => ['deficit_pct', 'min_kcal'],
+
     'energy' => [
         'kcal_per_kg' => 7700,
         'trend_alpha' => 0.1,

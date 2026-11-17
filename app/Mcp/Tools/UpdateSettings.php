@@ -15,7 +15,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsIdempotent;
 
 #[Name('update_settings')]
 #[IsIdempotent]
-#[Description('Change the user profile or goal: pass only the settings that change. Height, age, target weight, deficit and day start hour live here, not in log_metric. Only on the user\'s explicit request: these values change the daily norm. Returns the profile with the new norm.')]
+#[Description('Change the user profile or goal: pass only the settings that change. Height, age, target weight, deficit and day start hour live here, not in log_metric. Only on the user\'s explicit request: these values change the daily norm. A new deficit or minimum norm applies from today on, past days keep their norm. Returns the profile with the new norm.')]
 class UpdateSettings extends KkalTool
 {
     public function handle(Request $request): ResponseFactory

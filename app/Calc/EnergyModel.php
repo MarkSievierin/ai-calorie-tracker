@@ -14,6 +14,9 @@ use Carbon\CarbonImmutable;
  *   over the last N complete days (N = up to window_days), blended as keep_old * old + (1 - keep_old) * fact.
  *   A window with too many days without food records is unreliable and keeps the previous TDEE.
  *
+ * The norm of a day uses the deficit and minimum in effect on that day ($settingHistory), so changing the goal
+ * does not rewrite the norm of past days.
+ *
  * Because intake uses the upper estimate (kcal_max), a systematic overestimate of food also raises
  * TDEE_fact, so the two errors cancel out.
  *
@@ -28,6 +31,8 @@ final class EnergyModel
      * @param  array<string, float>  $intake  date => kcal_max eaten (only days with at least one meal)
      * @param  array<string, mixed>  $settings  values from Settings::all()
      * @param  array<string, mixed>  $cfg  config('kkal.energy')
+     * @param  array<string, array<string, mixed>>  $settingHistory  key => [effective_on => value], oldest first;
+     *                                                               a key without history uses $settings
      */
     public function __construct(
         private readonly ?string $startDate,
@@ -36,6 +41,7 @@ final class EnergyModel
         private readonly WeightTrend $trend,
         private readonly array $settings,
         private readonly array $cfg,
+        private readonly array $settingHistory = [],
     ) {
         $this->build();
     }
@@ -56,17 +62,21 @@ final class EnergyModel
         return round($bmr * (float) $this->settings['activity_factor']);
     }
 
-    public function normFor(?float $tdee): ?int
+    /** Norm of a date: TDEE minus the deficit in effect that day, never below that day's minimum. */
+    public function normFor(?float $tdee, string $date): ?int
     {
         if ($tdee === null) {
             return null;
         }
-        $norm = $tdee * (1 - (float) $this->settings['deficit_pct'] / 100);
+        $norm = $tdee * (1 - (float) $this->settingOn('deficit_pct', $date) / 100);
 
-        return (int) round(max((float) $this->settings['min_kcal'], $norm));
+        return (int) round(max((float) $this->settingOn('min_kcal', $date), $norm));
     }
 
-    /** Checkpoint in effect on a date (the last one on or before it). */
+    /**
+     * Checkpoint in effect on a date (the last one on or before it). TDEE changes only on checkpoints,
+     * the norm also on the days the deficit or minimum changed.
+     */
     public function at(string $date): array
     {
         $current = null;
@@ -76,8 +86,26 @@ final class EnergyModel
             }
             $current = $cp;
         }
+        if ($current === null) {
+            return $this->emptyCheckpoint($date);
+        }
+        $current['norm'] = $this->normFor($current['tdee'], $date);
 
-        return $current ?? $this->emptyCheckpoint($date);
+        return $current;
+    }
+
+    /** Value of a dated setting on a date: the last change on or before it. */
+    private function settingOn(string $key, string $date): mixed
+    {
+        $value = $this->settings[$key];
+        foreach ($this->settingHistory[$key] ?? [] as $from => $v) {
+            if ($from > $date) {
+                break;
+            }
+            $value = $v;
+        }
+
+        return $value;
     }
 
     /** @return list<array<string, mixed>> */
@@ -118,7 +146,7 @@ final class EnergyModel
             }
 
             $cp['start_estimate'] = $estimate;
-            $cp['norm'] = $this->normFor($cp['tdee']);
+            $cp['norm'] = $this->normFor($cp['tdee'], $date);
             $this->checkpoints[] = $cp;
             $prev = $cp;
         }
@@ -172,7 +200,7 @@ final class EnergyModel
             'fact' => null,
             'window_days' => null,
             'start_estimate' => $estimate,
-            'norm' => $this->normFor($estimate),
+            'norm' => $this->normFor($estimate, $date),
         ];
     }
 }

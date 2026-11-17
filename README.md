@@ -26,7 +26,11 @@ One user, no registration, one static token.
   - after that: `avg kcal_max over logged days - (trend_end - trend_start) * 7700 / N` over the last N complete
     days (up to 28), blended `0.7 * old + 0.3 * fact`. A window with more than 30% days without food is unreliable
     and keeps the previous value. Overestimated food also raises TDEE_fact, so the two errors cancel out.
-- **Norm** = TDEE x (1 - deficit %), never below `min_kcal`. Changes only on recalculation days.
+- **Norm** = TDEE x (1 - deficit %), never below `min_kcal`. TDEE changes only on recalculation days; deficit and
+  `min_kcal` are dated (`setting_changes`, `config('kkal.dated_settings')`): a change applies from the day it is made
+  and past days keep the norm they had. Why: after 15% -> 20% the whole norm line on the chart dropped, so past days
+  were judged against a goal that did not exist then. Profile values (height, age, activity, start TDEE) are not
+  dated on purpose: they correct facts, so the whole history is recomputed.
 - **Flags** (`GetProgressAction`): too_fast (>1 kg/week two weeks in a row), stalled (flat 3 weeks with a deficit),
   low_logging (<2 meals/day over the last 7 days), below_min.
 - **Products** (`save_product`, Settings → My products) hold label values per 100 g, plus optional `piece_g` (weight of
@@ -40,6 +44,8 @@ One user, no registration, one static token.
   `POST /api/metrics` still adds a record: several readings a day (blood pressure) are legitimate.
   iPhone: a Shortcuts automation reads the day's steps from Health and calls the endpoint, see `docs/iphone-steps.md`.
 - Everything is recomputed from history on each request. There is no stored TDEE state that could drift.
+- **Web app refresh**: an installed iPhone web app has no reload gesture, so pulling down from the top of any tab
+  reloads the page (not while a form is open), and the Day header has a ↻ button.
 - Times are stored in UTC; a "day" is a local date in `settings.timezone` (Europe/Kyiv by default) that starts at
   `settings.day_start_hour` (0 by default). Why: with a late bedtime a snack at 01:00 belongs to the evening, and
   the agent used to fake `eaten_at` (23:59) to keep it there. All day grouping goes through

@@ -59,6 +59,33 @@ class ApiTest extends TestCase
         $this->getJson('/api/day', $this->h)->assertJsonPath('norm_kcal', 2030);
     }
 
+    public function test_deficit_change_keeps_the_norm_of_past_days(): void
+    {
+        $this->postJson('/api/weights', ['weight_kg' => 90, 'measured_at' => '2026-11-01T08:00:00'], $this->h)->assertCreated();
+        $this->putJson('/api/settings', ['height_cm' => 180, 'age' => 30], $this->h)->assertOk();
+        // The web app saves every field: an unchanged deficit must not start a new period.
+        $this->putJson('/api/settings', ['deficit_pct' => 15.0, 'min_kcal' => 1800], $this->h)->assertOk();
+        $this->assertDatabaseCount('setting_changes', 0);
+
+        $this->putJson('/api/settings', ['deficit_pct' => 20], $this->h)->assertOk();
+        // Changed twice on one day: the last value wins, the "before" value stays 15.
+        $this->putJson('/api/settings', ['deficit_pct' => 10], $this->h)->assertOk();
+
+        // TDEE 2256: 15% before today, 10% from today on.
+        $this->getJson('/api/calories?from=2026-11-03&to=2026-11-05', $this->h)->assertOk()
+            ->assertJsonPath('days.0.norm_kcal', 1918)
+            ->assertJsonPath('days.1.norm_kcal', 1918)
+            ->assertJsonPath('days.2.norm_kcal', 2030);
+        $this->getJson('/api/day?date=2026-11-04', $this->h)->assertJsonPath('norm_kcal', 1918);
+
+        CarbonImmutable::setTestNow('2026-11-07 10:00:00');
+        $this->putJson('/api/settings', ['deficit_pct' => 20], $this->h)->assertOk();
+        $this->getJson('/api/calories?from=2026-11-04&to=2026-11-07', $this->h)->assertOk()
+            ->assertJsonPath('days.0.norm_kcal', 1918)
+            ->assertJsonPath('days.1.norm_kcal', 2030)
+            ->assertJsonPath('days.3.norm_kcal', 1805);
+    }
+
     public function test_series_endpoints(): void
     {
         $this->postJson('/api/meals', $this->meal(), $this->h)->assertCreated();

@@ -56,6 +56,7 @@ class EnergyService
             trend: $this->trend(),
             settings: $this->settings->all(),
             cfg: config('kkal.energy'),
+            settingHistory: $this->settings->history(),
         );
     }
 

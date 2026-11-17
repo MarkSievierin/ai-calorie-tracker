@@ -96,6 +96,9 @@ const num = (v, label, empty = 0) => {
     return n;
 };
 
+// Pull-to-refresh: an installed iPhone web app has no reload gesture or button of its own.
+const PULL_TRIGGER_PX = 70;
+
 const charts = {};
 function draw(id, config) {
     charts[id]?.destroy();
@@ -111,6 +114,7 @@ Alpine.data('kkal', () => ({
     busy: false,
     toast: '',
     toastAction: null,
+    pull: 0,
 
     // The current day as the server sees it (timezone, day start hour); the browser date until the first load.
     serverToday: null,
@@ -157,6 +161,39 @@ Alpine.data('kkal', () => ({
             if (!(e instanceof Unauthorized)) this.error = e.message;
         }
         this.$watch('tab', (t) => this.openTab(t));
+        this.listenPull();
+    },
+
+    // A full page reload: fresh data on every tab and the new app version after a deploy.
+    reload() {
+        location.reload();
+    },
+    get pullReady() { return this.pull >= PULL_TRIGGER_PX; },
+    // Not while a form is open: a reload would drop what was typed.
+    get formOpen() { return !!(this.mealForm || this.editing || this.productForm) || document.activeElement?.matches('input, textarea, select'); },
+    listenPull() {
+        let startY = null;
+        window.addEventListener('touchstart', (e) => {
+            startY = window.scrollY <= 0 && e.touches.length === 1 && !this.formOpen ? e.touches[0].clientY : null;
+        }, { passive: true });
+        window.addEventListener('touchmove', (e) => {
+            if (startY === null) return;
+            const dy = e.touches[0].clientY - startY;
+            // Scrolled away or pulled up: not a refresh.
+            if (dy <= 0 || window.scrollY > 0) {
+                startY = null;
+                this.pull = 0;
+                return;
+            }
+            this.pull = Math.min(dy * 0.5, PULL_TRIGGER_PX * 1.4);
+        }, { passive: true });
+        const end = () => {
+            if (this.pullReady) this.reload();
+            else this.pull = 0;
+            startY = null;
+        };
+        window.addEventListener('touchend', end);
+        window.addEventListener('touchcancel', () => { startY = null; this.pull = 0; });
     },
 
     async run(fn) {

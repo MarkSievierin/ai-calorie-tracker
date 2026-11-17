@@ -14,6 +14,9 @@ class SettingsService
     /** @var array<string, mixed>|null */
     private ?array $cache = null;
 
+    /** @var array<string, array<string, mixed>>|null */
+    private ?array $history = null;
+
     public function __construct(private readonly SettingReader $reader) {}
 
     /** @return array<string, mixed> */
@@ -29,9 +32,21 @@ class SettingsService
         return $this->all()[$key] ?? null;
     }
 
+    /**
+     * Dated values of the settings that shape the norm (config kkal.dated_settings).
+     * A key without history has had its current value all along.
+     *
+     * @return array<string, array<string, mixed>> key => [effective_on => value], oldest first
+     */
+    public function history(): array
+    {
+        return $this->history ??= $this->reader->history(config('kkal.dated_settings'));
+    }
+
     public function refresh(): void
     {
         $this->cache = null;
+        $this->history = null;
     }
 
     public function timezone(): string

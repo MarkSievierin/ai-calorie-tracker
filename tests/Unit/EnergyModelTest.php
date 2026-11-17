@@ -101,4 +101,19 @@ class EnergyModelTest extends TestCase
         $this->assertNull($m->at('2026-01-01')['norm']);
         $this->assertSame(TdeeSource::None, $m->at('2026-01-01')['source']);
     }
+
+    public function test_norm_uses_the_deficit_in_effect_on_each_day(): void
+    {
+        // TDEE 2256 all along; deficit 15% until 2026-01-09, 20% from 2026-01-10 (changed that day).
+        $history = ['deficit_pct' => ['1970-01-01' => 15, '2026-01-10' => 20]];
+        $m = new EnergyModel('2026-01-01', '2026-01-12', [], new WeightTrend(['2026-01-01' => 90.0]),
+            $this->settings(['deficit_pct' => 20, 'min_kcal' => 1500]), self::CFG, $history);
+
+        $this->assertSame(1918, $m->at('2026-01-03')['norm']);
+        $this->assertSame(1918, $m->at('2026-01-09')['norm']);
+        // 2256 * 0.8 = 1804.8, between checkpoints: the norm moves on the day of the change, the TDEE does not.
+        $this->assertSame(1805, $m->at('2026-01-10')['norm']);
+        $this->assertSame(2256.0, $m->at('2026-01-10')['tdee']);
+        $this->assertSame(1805, $m->at('2026-01-12')['norm']);
+    }
 }
