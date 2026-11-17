@@ -19,6 +19,12 @@ html, body { background: var(--color-bg); color: var(--color-text); }
 body { -webkit-tap-highlight-color: transparent; overscroll-behavior-y: none; }
 [x-cloak] { display: none !important; }
 
+/* iOS Safari gives date/time inputs their own min width and height: in a two-column grid they overflow the card
+   and stand taller than the text input next to them. Same box as a text input, value aligned left. */
+input.input { height: 2.625rem; }
+input.input[type='date'], input.input[type='time'] { -webkit-appearance: none; appearance: none; min-width: 0; text-align: left; }
+input.input::-webkit-date-and-time-value { text-align: left; }
+
 @layer components {
     .card { @apply rounded-2xl bg-card p-4; }
     .input { @apply w-full rounded-xl border border-line bg-bg px-3 py-2 text-base text-text outline-none focus:border-accent; }

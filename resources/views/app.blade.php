@@ -141,7 +141,7 @@
                                     <label class="block"><span class="label">Название</span><input class="input" x-model="editing.title"></label>
                                     <div class="grid grid-cols-2 gap-2">
                                         <label><span class="label">Ккал (в зачёт)</span><input class="input" inputmode="decimal" x-model="editing.kcal_max"></label>
-                                        <label><span class="label">Время</span><input class="input" type="time" x-model="editing.time"></label>
+                                        <label class="min-w-0"><span class="label">Время</span><input class="input" type="time" x-model="editing.time"></label>
                                     </div>
                                     <div class="grid grid-cols-3 gap-2">
                                         <label><span class="label">Белки, г</span><input class="input" inputmode="decimal" x-model="editing.protein_g"></label>
@@ -183,7 +183,7 @@
                             <label class="block"><span class="label">Что съел</span><input class="input" x-model="mealForm.title" placeholder="например, гречка с курицей"></label>
                             <div class="grid grid-cols-2 gap-2">
                                 <label><span class="label">Калории, ккал *</span><input class="input" inputmode="decimal" x-model="mealForm.kcal" required></label>
-                                <label><span class="label">Время</span><input class="input" type="time" x-model="mealForm.time"></label>
+                                <label class="min-w-0"><span class="label">Время</span><input class="input" type="time" x-model="mealForm.time"></label>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
                                 <label><span class="label">Белки, г</span><input class="input" inputmode="decimal" x-model="mealForm.protein_g"></label>
@@ -295,7 +295,7 @@
                     <div class="grid grid-cols-2 gap-2">
                         <label><span class="label" x-text="(metricLabels[metricForm.type] ?? 'Значение') + (metricHints[metricForm.type] ? ': ' + metricHints[metricForm.type] : '')"></span>
                             <input class="input" inputmode="decimal" x-model="metricForm.value"></label>
-                        <label><span class="label">Дата</span><input class="input" type="date" :max="todayIso" x-model="metricForm.date"></label>
+                        <label class="min-w-0"><span class="label">Дата</span><input class="input" type="date" :max="todayIso" x-model="metricForm.date"></label>
                     </div>
                     <button class="btn w-full" :disabled="busy || !metricForm.value || !metricForm.type">Записать</button>
                 </form>
