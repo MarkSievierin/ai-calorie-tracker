@@ -46,7 +46,29 @@ class KkalServer extends Server
         // Everything it would otherwise have to remember to look up (profile, rules, products, recent findings)
         // is appended here, so it is known from the first message of every chat.
         $this->instructions = (string) file_get_contents(resource_path('mcp/instructions.md'))
-            .$this->profile().$this->rules().$this->products().$this->recentNotes();
+            .$this->math().$this->profile().$this->rules().$this->products().$this->recentNotes();
+    }
+
+    /**
+     * How the server computes everything, with the numbers taken from config, so the agent explains the real model
+     * instead of guessing and the text cannot drift from the code.
+     */
+    private function math(): string
+    {
+        $e = config('kkal.energy');
+
+        return strtr((string) file_get_contents(resource_path('mcp/math.md')), [
+            '{trend_alpha}' => (string) $e['trend_alpha'],
+            '{trend_alpha_pct}' => (string) round($e['trend_alpha'] * 100),
+            '{trend_lag}' => (string) round(1 / $e['trend_alpha']),
+            '{recalc_every_days}' => (string) $e['recalc_every_days'],
+            '{warmup_days}' => (string) $e['warmup_days'],
+            '{window_days}' => (string) $e['window_days'],
+            '{kcal_per_kg}' => (string) $e['kcal_per_kg'],
+            '{keep_old}' => (string) $e['keep_old'],
+            '{keep_new}' => (string) round(1 - $e['keep_old'], 2),
+            '{max_missing_pct}' => (string) round($e['max_missing_share'] * 100),
+        ]);
     }
 
     private function profile(): string

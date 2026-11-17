@@ -31,6 +31,10 @@ One user, no registration, one static token.
   and past days keep the norm they had. Why: after 15% -> 20% the whole norm line on the chart dropped, so past days
   were judged against a goal that did not exist then. Profile values (height, age, activity, start TDEE) are not
   dated on purpose: they correct facts, so the whole history is recomputed.
+- **Period budget** (`get_progress` -> `intake.budget`, Calories screen): sum of the daily norms vs kcal eaten over the
+  complete logged days of the window, `over_kcal` > 0 = ate more. Why: day-by-day colours hide the real question
+  ("did I overeat this month?"); one big evening and several light days cancel out here. Days without records are
+  unknown, not zero, and today is not over yet, so neither counts.
 - **Flags** (`GetProgressAction`): too_fast (>1 kg/week two weeks in a row), stalled (flat 3 weeks with a deficit),
   low_logging (<2 meals/day over the last 7 days), below_min.
 - **Products** (`save_product`, Settings → My products) hold label values per 100 g, plus optional `piece_g` (weight of
@@ -84,6 +88,8 @@ Rules:
 - Write actions call `EnergyService::refresh()` so reads in the same request (day totals after a write) see the change.
 - The agent in chat cannot read this repo. It sees only `resources/mcp/instructions.md` (sent as MCP `instructions`)
   and the tool descriptions. Change those when the agent's behaviour should change.
+  `resources/mcp/math.md` (all formulas, numbers filled from `config('kkal.energy')`) is appended too, so the agent
+  explains the real model instead of guessing. Update it together with the math.
   `KkalServer` appends to the instructions everything the agent would otherwise have to remember to look up:
   the profile (settings, today, TDEE, norm), all `rule` notes, the saved products and the 10 latest other notes.
   Why: in real chats the agent forgot `get_notes` / `find_products`, estimated staples anew each time and wrote

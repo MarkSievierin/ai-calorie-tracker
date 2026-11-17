@@ -97,7 +97,11 @@ const num = (v, label, empty = 0) => {
 };
 
 // Pull-to-refresh: an installed iPhone web app has no reload gesture or button of its own.
-const PULL_TRIGGER_PX = 70;
+// The indicator rests above the screen (PULL_HIDDEN_PX), slides down with the finger up to PULL_MAX_PX and
+// triggers a reload past PULL_TRIGGER_PX.
+const PULL_TRIGGER_PX = 64;
+const PULL_MAX_PX = 120;
+const PULL_HIDDEN_PX = 52;
 
 const charts = {};
 function draw(id, config) {
@@ -114,7 +118,7 @@ Alpine.data('kkal', () => ({
     busy: false,
     toast: '',
     toastAction: null,
-    pull: 0,
+    pullState: '', // '' | 'ready' | 'refreshing'
 
     // The current day as the server sees it (timezone, day start hour); the browser date until the first load.
     serverToday: null,
@@ -168,32 +172,56 @@ Alpine.data('kkal', () => ({
     reload() {
         location.reload();
     },
-    get pullReady() { return this.pull >= PULL_TRIGGER_PX; },
     // Not while a form is open: a reload would drop what was typed.
     get formOpen() { return !!(this.mealForm || this.editing || this.productForm) || document.activeElement?.matches('input, textarea, select'); },
+    // Pull-to-refresh. The indicator follows the finger through a style write per animation frame (transform only,
+    // no layout) and eases back or into the spinning state on release; Alpine only gets the state changes.
     listenPull() {
         let startY = null;
+        let dist = 0;
+        let frame = 0;
+        const el = () => document.getElementById('pull-indicator');
+        const paint = (animate) => {
+            cancelAnimationFrame(frame);
+            frame = requestAnimationFrame(() => {
+                const box = el();
+                if (!box) return;
+                box.style.transition = animate ? 'transform 280ms cubic-bezier(.2,.8,.2,1), opacity 280ms ease-out' : 'none';
+                box.style.transform = `translate3d(0, ${dist - PULL_HIDDEN_PX}px, 0)`;
+                box.style.opacity = String(Math.min(1, dist / PULL_TRIGGER_PX));
+                box.firstElementChild.style.transform = this.pullState === 'refreshing' ? '' : `rotate(${dist * 3}deg)`;
+            });
+        };
+        const reset = () => {
+            startY = null;
+            dist = 0;
+            this.pullState = '';
+            paint(true);
+        };
         window.addEventListener('touchstart', (e) => {
+            if (this.pullState === 'refreshing') return;
             startY = window.scrollY <= 0 && e.touches.length === 1 && !this.formOpen ? e.touches[0].clientY : null;
         }, { passive: true });
         window.addEventListener('touchmove', (e) => {
             if (startY === null) return;
-            const dy = e.touches[0].clientY - startY;
-            // Scrolled away or pulled up: not a refresh.
-            if (dy <= 0 || window.scrollY > 0) {
-                startY = null;
-                this.pull = 0;
-                return;
-            }
-            this.pull = Math.min(dy * 0.5, PULL_TRIGGER_PX * 1.4);
+            if (window.scrollY > 0) return reset();
+            // Rubber band: the further the pull, the less the indicator moves; it never passes PULL_MAX_PX.
+            const dy = Math.max(0, e.touches[0].clientY - startY);
+            dist = PULL_MAX_PX * (1 - Math.exp(-dy / PULL_MAX_PX));
+            this.pullState = dist >= PULL_TRIGGER_PX ? 'ready' : '';
+            paint(false);
         }, { passive: true });
-        const end = () => {
-            if (this.pullReady) this.reload();
-            else this.pull = 0;
+        window.addEventListener('touchend', () => {
+            if (startY === null) return;
             startY = null;
-        };
-        window.addEventListener('touchend', end);
-        window.addEventListener('touchcancel', () => { startY = null; this.pull = 0; });
+            if (this.pullState !== 'ready') return reset();
+            // Settle at the trigger line and spin a moment, so the reload does not cut the gesture off.
+            dist = PULL_TRIGGER_PX;
+            this.pullState = 'refreshing';
+            paint(true);
+            setTimeout(() => this.reload(), 350);
+        });
+        window.addEventListener('touchcancel', () => { if (this.pullState !== 'refreshing') reset(); });
     },
 
     async run(fn) {
@@ -455,6 +483,26 @@ Alpine.data('kkal', () => ({
             },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, scales: { x: { ticks: { maxTicksLimit: 8 } } } },
         }));
+    },
+    get budget() { return this.progress?.intake.budget ?? null; },
+    // Same tolerance as the daily bars, multiplied by the days: within it the period counts as on target.
+    // Literal class names for Tailwind: text-accent text-warn text-bad bg-accent bg-warn bg-bad
+    get budgetTone() {
+        const b = this.budget;
+        if (!b || b.over_kcal <= 0) return 'accent';
+        return b.over_kcal <= OVER_TOLERANCE_KCAL * b.days ? 'warn' : 'bad';
+    },
+    get budgetPct() {
+        const b = this.budget;
+        return b?.norm_kcal ? Math.min(100, Math.round((b.eaten_kcal / b.norm_kcal) * 100)) : 0;
+    },
+    kcal: (v) => (v === null || v === undefined ? '—' : Math.round(v).toLocaleString('ru-RU')),
+    daysWord(n) {
+        const m10 = n % 10;
+        const m100 = n % 100;
+        if (m10 === 1 && m100 !== 11) return 'день';
+        if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return 'дня';
+        return 'дней';
     },
     get activeFlags() {
         if (!this.progress) return [];

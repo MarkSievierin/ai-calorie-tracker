@@ -2,6 +2,7 @@
 
 namespace App\Actions\Reports;
 
+use App\Calc\EnergyModel;
 use App\Calc\WeightTrend;
 use App\Services\EnergyService;
 use App\Services\SettingsService;
@@ -20,7 +21,8 @@ class GetProgressAction
         $intake = $this->energy->intake();
         $counts = $this->energy->mealCounts();
         $trend = $this->energy->trend();
-        $cp = $this->energy->model()->at($today);
+        $model = $this->energy->model();
+        $cp = $model->at($today);
 
         // Complete days only: [today - days, today - 1].
         $from = SettingsService::shift($today, -$days);
@@ -45,6 +47,7 @@ class GetProgressAction
                 'avg_kcal' => $avgKcal,
                 'logged_days' => count($logged),
                 'avg_meals_per_day' => round(array_sum(array_map(fn ($d) => $counts[$d] ?? 0, $window)) / max(1, $days), 1),
+                'budget' => $this->budget($logged, $intake, $model),
             ],
             'energy' => [
                 'tdee_kcal' => $cp['tdee'],
@@ -59,6 +62,39 @@ class GetProgressAction
                 'min_kcal' => (float) $settings['min_kcal'],
             ],
             'flags' => $this->flags($today, $trend, $cp['tdee'], (float) $settings['min_kcal'], $avgKcal, $intake, $counts),
+        ];
+    }
+
+    /**
+     * The period as a whole instead of day by day: the sum of the daily norms against what was eaten, over the
+     * logged days with a known norm (days without records are unknown, not zero). Positive over_kcal = ate more.
+     *
+     * @param  list<string>  $logged
+     * @param  array<string, float>  $intake
+     */
+    private function budget(array $logged, array $intake, EnergyModel $model): ?array
+    {
+        $norm = 0;
+        $eaten = 0.0;
+        $days = 0;
+        foreach ($logged as $d) {
+            $n = $model->at($d)['norm'];
+            if ($n === null) {
+                continue;
+            }
+            $norm += $n;
+            $eaten += $intake[$d];
+            $days++;
+        }
+        if ($days === 0) {
+            return null;
+        }
+
+        return [
+            'days' => $days,
+            'norm_kcal' => $norm,
+            'eaten_kcal' => round($eaten),
+            'over_kcal' => round($eaten - $norm),
         ];
     }
 

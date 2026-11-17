@@ -30,11 +30,14 @@
 
     <template x-if="authed">
         <div>
-            {{-- Pull-to-refresh indicator --}}
-            <div class="pointer-events-none fixed inset-x-0 top-0 z-30 flex justify-center" x-show="pull > 10"
-                 :style="`padding-top: calc(env(safe-area-inset-top) + ${pull / 2}px)`">
-                <div class="rounded-full bg-line px-3 py-1 text-xs shadow-lg" :class="pullReady ? 'text-accent' : 'text-muted'"
-                     x-text="pullReady ? '↻ Отпусти, чтобы обновить' : '↓ Потяни, чтобы обновить'"></div>
+            {{-- Pull-to-refresh indicator: moved by listenPull() with transform/opacity, hidden above the screen at rest. --}}
+            <div class="pointer-events-none fixed inset-x-0 z-30 flex justify-center" style="top: env(safe-area-inset-top)">
+                <div id="pull-indicator" class="flex h-10 w-10 items-center justify-center rounded-full bg-line shadow-lg"
+                     :class="pullState ? 'text-accent' : 'text-muted'" style="transform: translate3d(0, -52px, 0); opacity: 0; will-change: transform, opacity">
+                    <svg class="h-5 w-5" :class="pullState === 'refreshing' && 'animate-spin'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <path d="M20 12a8 8 0 1 1-2.34-5.66"/><path d="M20 4v5h-5"/>
+                    </svg>
+                </div>
             </div>
 
             <p class="mb-3 rounded-xl bg-bad/15 px-3 py-2 text-sm text-bad" x-show="error" x-text="error"></p>
@@ -248,6 +251,24 @@
                     <template x-for="p in [[14, '2 недели'], [28, '4 недели'], [91, '3 месяца']]">
                         <button class="chip" :class="calPeriod === p[0] && 'chip-on'" @click="calPeriod = p[0]; run(() => loadCalories())" x-text="p[1]"></button>
                     </template>
+                </div>
+                {{-- The period as a whole: sum of the daily norms vs eaten, over complete logged days. --}}
+                <div class="card space-y-3" x-show="budget">
+                    <div class="flex items-baseline justify-between">
+                        <div class="text-sm font-semibold">За период</div>
+                        <div class="text-xs text-muted"><span x-text="budget?.days"></span> <span x-text="daysWord(budget?.days)"></span> с записями, без сегодня</div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div><div class="text-xs text-muted">Можно было</div><div class="text-lg font-semibold" x-text="kcal(budget?.norm_kcal)"></div></div>
+                        <div><div class="text-xs text-muted">Съедено</div><div class="text-lg font-semibold" x-text="kcal(budget?.eaten_kcal)"></div></div>
+                        <div><div class="text-xs text-muted" x-text="budget?.over_kcal > 0 ? 'Перебор' : 'Запас'"></div>
+                            <div class="text-lg font-bold" :class="'text-' + budgetTone" x-text="kcal(Math.abs(budget?.over_kcal ?? 0))"></div></div>
+                    </div>
+                    <div class="h-2 overflow-hidden rounded-full bg-line">
+                        <div class="h-full rounded-full" :class="'bg-' + budgetTone" :style="`width: ${budgetPct}%`"></div>
+                    </div>
+                    <p class="text-xs text-muted" x-show="budget?.over_kcal > 0">В среднем <span x-text="kcal(Math.round(budget?.over_kcal / budget?.days))"></span> ккал в день сверх нормы.</p>
+                    <p class="text-xs text-muted" x-show="budget?.over_kcal <= 0">В среднем на <span x-text="kcal(Math.round(-budget?.over_kcal / budget?.days))"></span> ккал в день ниже нормы.</p>
                 </div>
                 <div class="card">
                     <div class="h-60"><canvas id="calChart"></canvas></div>

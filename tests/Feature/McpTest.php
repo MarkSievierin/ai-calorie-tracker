@@ -194,6 +194,16 @@ class McpTest extends TestCase
             ->where('products.0.kcal_100g', 380)->where('products.0.piece_g', 1.25)->where('products.0.notes', 'weighed: 20 pcs = 25 g')->etc());
     }
 
+    public function test_instructions_explain_the_math_with_config_values(): void
+    {
+        $text = $this->instructions();
+        $this->assertStringContainsString('How the numbers work', $text);
+        $this->assertStringContainsString('alpha 0.1', $text);
+        $this->assertStringContainsString('New TDEE = 0.7 x previous TDEE + 0.3 x fact', $text);
+        // Every placeholder was filled.
+        $this->assertDoesNotMatchRegularExpression('/\{[a-z_]+\}/', $text);
+    }
+
     public function test_instructions_include_latest_notes(): void
     {
         KkalServer::tool(AddNote::class, ['kind' => 'observation', 'text' => 'One stick weighs 1.25 g'])->assertOk();

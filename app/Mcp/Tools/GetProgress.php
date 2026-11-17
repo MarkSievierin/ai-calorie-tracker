@@ -13,7 +13,7 @@ use Laravel\Mcp\Server\Tools\Annotations\IsReadOnly;
 
 #[Name('get_progress')]
 #[IsReadOnly]
-#[Description('Progress over the last N complete days: weight trend and pace (kg/week), average intake, adaptive TDEE (real expenditure from intake and trend), recommended daily norm and flags: too_fast (losing >1 kg/week two weeks in a row: suggest eating more), stalled (flat trend 3 weeks despite a deficit), low_logging (<2 meals/day logged: data not reliable), below_min (average below the minimum norm). Use for "how am I doing?".')]
+#[Description('Progress over the last N complete days: weight trend and pace (kg/week), average intake, the period budget (intake.budget: sum of the daily norms vs eaten over logged days with a norm, over_kcal > 0 = ate more than the norms allowed), adaptive TDEE (real expenditure from intake and trend), recommended daily norm and flags: too_fast (losing >1 kg/week two weeks in a row: suggest eating more), stalled (flat trend 3 weeks despite a deficit), low_logging (<2 meals/day logged: data not reliable), below_min (average below the minimum norm). Use for "how am I doing?".')]
 class GetProgress extends KkalTool
 {
     public function handle(Request $request): ResponseFactory

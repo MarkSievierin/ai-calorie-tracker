@@ -86,6 +86,22 @@ class ApiTest extends TestCase
             ->assertJsonPath('days.3.norm_kcal', 1805);
     }
 
+    public function test_progress_budget_sums_norms_and_intake_of_complete_logged_days(): void
+    {
+        $this->postJson('/api/weights', ['weight_kg' => 90, 'measured_at' => '2026-11-01T08:00:00'], $this->h)->assertCreated();
+        $this->putJson('/api/settings', ['height_cm' => 180, 'age' => 30], $this->h)->assertOk();
+        // Norm 1918 (TDEE 2256, 15%). Two logged complete days, one empty day, and today (not counted).
+        $this->postJson('/api/meals', $this->meal(['kcal_est' => 2000, 'kcal_max' => 2200, 'eaten_at' => '2026-11-02T12:00:00']), $this->h)->assertCreated();
+        $this->postJson('/api/meals', $this->meal(['kcal_est' => 1500, 'kcal_max' => 1700, 'eaten_at' => '2026-11-04T12:00:00']), $this->h)->assertCreated();
+        $this->postJson('/api/meals', $this->meal(['kcal_est' => 900, 'kcal_max' => 900]), $this->h)->assertCreated();
+
+        $this->getJson('/api/progress?days=7', $this->h)->assertOk()
+            ->assertJsonPath('intake.budget.days', 2)
+            ->assertJsonPath('intake.budget.norm_kcal', 3836)
+            ->assertJsonPath('intake.budget.eaten_kcal', 3900)
+            ->assertJsonPath('intake.budget.over_kcal', 64);
+    }
+
     public function test_series_endpoints(): void
     {
         $this->postJson('/api/meals', $this->meal(), $this->h)->assertCreated();
